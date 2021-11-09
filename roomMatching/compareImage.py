@@ -4,6 +4,7 @@ import numpy as np
 MAX_FEATURES = 500
 GOOD_MATCH_PERCENT = 0.15
 
+# this script compares 2 images and finds their matching rate, if the matching rate is high enough, we can estimate the 3D transformation
 
 # Compares 2 images and returns the transformation and likelyhood of being a good match
 def CompareImage(imTest,imRef):
@@ -49,3 +50,7 @@ def CompareImage(imTest,imRef):
     im1Reg = cv2.warpPerspective(imTest, h, (width, height))
 
     return im1Reg, h, numGoodMatches
+
+# calculate the transformationmatrix between 2 images using the matched features
+def CalculateTransformation(im1, im2, matches):
+    pass
