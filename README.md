@@ -76,6 +76,8 @@ The camera calibration matrix can be calculated using the vertical field of view
 def GetCameraMatrix(fov, referenceImagePath):
 ```
 and returns a 3x3 Matrix like this:
+
+```ipynb
 $$
 \left(\begin{array}{cc} 
 f_x & s & c_x\\
@@ -87,7 +89,7 @@ where:
 - $f_x, f_y$ are the horizontal and vertical focal length in pixels.
 - $s$ the skewness of the camera
 - $c_x,c_y$ the camera center in pixels.
-
+```
 #### Fundamental matrix
 
 the fundamental matrix is calculated using the matched feature points.
