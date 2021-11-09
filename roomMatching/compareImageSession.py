@@ -63,9 +63,9 @@ def CompareImageSession(testSessionDataPath, refSessionDataPath):
     print("This is the best image with " + str(bestResult.matchAmount) + " match amount" )
     print("Estimated homography : \n",  bestResult.transMatrix)
 
-    #return bestResult, bestTestImage, bestRefImage
+    return bestResult, bestTestImage, bestRefImage
 
-    cv2.imshow("bestRefImage",bestResult.testImage)
-    cv2.imshow("bestTestImage",bestResult.refImage)
-    cv2.imshow("AlignedImage",bestResult.transImage)
-    cv2.waitKey(0)
+    #cv2.imshow("bestRefImage",bestResult.testImage)
+    #cv2.imshow("bestTestImage",bestResult.refImage)
+    #cv2.imshow("AlignedImage",bestResult.transImage)
+    #cv2.waitKey(0)
