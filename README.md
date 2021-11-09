@@ -77,22 +77,20 @@ def GetCameraMatrix(fov, referenceImagePath):
 ```
 and returns a 3x3 Matrix like this:
 
-```ipynb
-$$
-\left(\begin{array}{cc} 
-f_x & s & c_x\\
-0  & f_y & c_y \\
-0 & 0 & 1
-\end{array}\right)
-$$ 
-where:
-- $f_x, f_y$ are the horizontal and vertical focal length in pixels.
-- $s$ the skewness of the camera
-- $c_x,c_y$ the camera center in pixels.
+```py
+cameraMatrix = 
+    [[ f_x ,  s  , c_x ],
+     [  0  , f_y , c_y ],
+     [  0  ,  0  ,  1  ]]
 ```
+where:
+- _f<sub>x</sub>_, _f<sub>y</sub>_ are the horizontal and vertical focal length in pixels.
+- _s_ the skewness of the camera
+- _c<sub>x</sub>_, _c<sub>y</sub>_ the camera center in pixels.
+
 #### Fundamental matrix
 
-the fundamental matrix is calculated using the matched feature points.
+The fundamental matrix is calculated using the matched feature points.
 
 ## 3D Check
 
