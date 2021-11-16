@@ -59,7 +59,7 @@ class BestResult:
 
 ### Feature check
 
-all the imaegs are compared against eachother using Image features (currently ORB).
+all the images are compared against eachother using Image features (currently ORB).
 Images that have enough matches will used for the next step
 
 ### Creating the transformation matrix
@@ -91,6 +91,17 @@ where:
 #### Fundamental matrix
 
 The fundamental matrix is calculated using the matched feature points.
+OpenCV has existing functions to calculate the fundamental matrix
+
+#### Essential matrix
+
+To calculate the final transformation matrix, the Essential matrix, we need to calibrate the Fundamental matrix using the Camera matrices. 
+
+```py
+E = K.T @ F @ K
+```
+
+If the 2 images are from different camera's you need to use both Calibration matrices to get the final transformation
 
 ## 3D Check
 

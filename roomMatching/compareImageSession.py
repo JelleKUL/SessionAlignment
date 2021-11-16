@@ -48,7 +48,7 @@ def CompareImageSession(testSessionDataPath, refSessionDataPath):
 
             testImage = cv2.imread(os.path.join(testSessionDirPath,testImageTransform.id) + ".jpg",cv2.IMREAD_COLOR)
             
-            imReg, h, matchAmount = compareImage.CompareImage(testImage, refImage)
+            h, matchAmount = compareImage.CompareImage(testImage, refImage)
             results.append(BestResult(testImage,refImage,imReg,h,matchAmount))
 
             # if the new match amount is higher then the previous one, set this to the new best result
