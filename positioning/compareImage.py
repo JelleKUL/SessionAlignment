@@ -9,17 +9,17 @@ GOOD_MATCH_PERCENT = 0.15
 def compare_image(imTest : ImageTransform,imRef: ImageTransform):
     """Compares 2 images and returns the transformation and likelyhood of being a good match"""
     
-    [matchScore, matches, keypoints1, keypoints2] = find_matches(imTest.path, imRef.path)
+    [matchScore, matches, keypoints1, keypoints2] = find_matches(imTest, imRef)
     essentialMatrix = calculate_transformation_matrix(imTest, imRef, matches, keypoints1,keypoints2)
     return matchScore, essentialMatrix
    
 
-def find_matches(imTestPath : str, imRefPath : str):
+def find_matches(imTestPath : ImageTransform, imRefPath : ImageTransform):
     """Finds matches between 2 images"""
 
     # Convert images to grayscale
-    im1Gray = cv2.cvtColor(cv2.imread(imTestPath), cv2.COLOR_BGR2GRAY)
-    im2Gray = cv2.cvtColor(cv2.imread(imRefPath), cv2.COLOR_BGR2GRAY)
+    im1Gray = cv2.cvtColor(cv2.imread(imTestPath.path), cv2.COLOR_BGR2GRAY)
+    im2Gray = cv2.cvtColor(cv2.imread(imRefPath.path), cv2.COLOR_BGR2GRAY)
 
     # Detect ORB features and compute descriptors.
     orb = cv2.ORB_create(MAX_FEATURES)
@@ -40,7 +40,7 @@ def find_matches(imTestPath : str, imRefPath : str):
     # calculate the match score
     # right now, it's just the average distances of the best points
     matchScore = 0
-    for i, match in enumerate(matches):
+    for match in matches:
         matchScore += match.distance
     matchScore /= len(matches)
 

@@ -2,6 +2,9 @@
 
 import numpy as np
 import quaternion
+import os
+
+IMG_EXTENSION = ".jpg"
 
 class ImageTransform:
     id = ""
@@ -12,21 +15,21 @@ class ImageTransform:
     cameraMatrix = [[0,0,0],[0,0,0],[0,0,0]]
     image = None
 
-    def __init__(self, id, pos, rot, fov, path):
+    def __init__(self, id = None, pos= None, rot= None, fov= None, path= None):
+        """the input path is the location of the folder"""
         self.id = id
         self.pos = pos
         self.rot = rot
         self.fov = fov
         self.path = path
 
-    @classmethod
     def from_dict(self, dict, path):
-        
+        """the input path is the location of the folder"""
         self.id = dict["id"]
         self.pos = dict_to_np_vector3(dict["pos"])
         self.rot = dict_to_quaternion(dict["rot"])
         self.fov = dict["fov"]
-        self.path = path
+        self.path = os.path.join(path, (self.id + IMG_EXTENSION))
         return self
     
 

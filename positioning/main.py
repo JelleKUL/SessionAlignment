@@ -20,6 +20,7 @@
 
 from cv2 import transform
 import numpy as np
+from positioning.positioning2D import BestResult
 
 # Step 1: Gather the Test Inputs
 # These will be received by the server at a later stage in development
@@ -36,9 +37,8 @@ closeEnoughSessions = find_close_sessions(referenceSessionDirLocation, np.array(
 
 
 # Step 3: 2D Check
-from compareImageSession import CompareImageSession
+#from compareImageSession import CompareImageSession
 from transform import ImageTransform
-from best_result import BestResult
 
 testSessionJsonPath = testSessionDirLocation + "/SessionData.json"
 bestResult = BestResult(0,0,0,0,0)
@@ -47,12 +47,13 @@ bestTestImage = 0
 bestSession = 0
 
 for referenceSession in closeEnoughSessions:
-    result,testImage,refImage = CompareImageSession(testSessionJsonPath, referenceSession)
-    if(result.matchAmount > bestResult.matchAmount):
-        bestResult = result
-        bestRefImage = refImage
-        bestTestImage = testImage
-        bestSession = referenceSession
+    #result,testImage,refImage = CompareImageSession(testSessionJsonPath, referenceSession)
+    #if(result.matchAmount > bestResult.matchAmount):
+        #bestResult = result
+        #estRefImage = refImage
+        #bestTestImage = testImage
+        #bestSession = referenceSession
+    pass
 
 from transform import get_global_position_offset
 from transform import Transform

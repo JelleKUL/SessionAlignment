@@ -2,6 +2,7 @@
 
 import os
 import json
+from math import sqrt
 
 import numpy as np
 
@@ -15,11 +16,11 @@ class Session:
     dirPath = ""
     globalPosition = [0,0,0]
     globalRotation = [0,0,0,0]
-    boundingBox = [0,0,0]
+    boundingBox = [[0,0,0],[0,0,0]] #3x2 matrix from min x to max z
     imageTransforms = []
     meshIds = []
 
-    def __init__(self, id, path, position, rotation, images, meshes):
+    def __init__(self, id = None, path= None, position= None, rotation= None, images= None, meshes= None):
         self.sessionId = id
         self.dirPath = path
         self.globalPosition = position
@@ -28,7 +29,6 @@ class Session:
         self.meshIds = meshes
         pass
 
-    @classmethod
     def from_dict(self, dict, path):
         self.sessionId = dict["sessionId"]
         self.dirPath = path
@@ -36,10 +36,32 @@ class Session:
         self.globalRotation = transform.dict_to_quaternion(dict["globalRotation"])
         self.imageTransforms = []
         for data in enumerate(dict["imageTransforms"]):
-            newTransform = transform.ImageTransform.from_dict(data[1], os.path.join(path, (self.sessionId + IMG_EXTENSION)))
+            newTransform = transform.ImageTransform().from_dict(data[1], path)
             self.imageTransforms.append(newTransform)
         self.meshIds = dict["meshIds"]
         return self
+
+    def get_bounding_box(self):
+        """returns a 2x3 numpy matrix containing the min and max values of the sessionData"""
+        self.boundingBox = np.concatenate((self.imageTransforms[0].pos, self.imageTransforms[0].pos),axis=0).reshape(2,3)
+        for trans in self.imageTransforms:
+            print(trans.pos)
+            self.boundingBox = np.concatenate((np.minimum(trans.pos, self.boundingBox[0]), np.maximum(trans.pos, self.boundingBox[1])),axis=0).reshape(2,3)
+        return self.boundingBox
+    
+    def get_bounding_radius(self):
+        """Returns a radius from the center points where all the points are in"""
+        radius = 0
+        for trans in self.imageTransforms:
+            distance = np.linalg.norm(trans.pos)
+            radius = max(radius, distance)
+        return radius
+
+def sphere_intersection(center1, radius1, center2, radius2):
+    """returns true if the 2 spheres are intersecting"""
+    centerDistance = sqrt(pow(center1[0] + center2[0], 2) + pow(center1[1] + center2[1], 2) + pow(center1[2] + center2[2], 2))
+    print("centerDistance = " + str(centerDistance))
+    return centerDistance < (radius1 + radius2)
 
 
 def find_close_sessions(path: str, coordinates: np.array, maxDistance: float):
@@ -55,18 +77,14 @@ def find_close_sessions(path: str, coordinates: np.array, maxDistance: float):
                 print("Found Session data:", os.path.join(root, name))
                 sessionFile = open(os.path.join(root, name),)
                 sessionData = json.load(sessionFile)
-                session = Session.from_dict(sessionData, root)
-                #print(session.__dict__)
+                session = Session().from_dict(sessionData, root)
 
-                distance = np.linalg.norm(session.globalPosition - coordinates)
-                print("Distance from coordinate:", distance)
-
-                if(distance < maxDistance):
+                if(sphere_intersection(session.globalPosition, session.get_bounding_radius(),coordinates, maxDistance)):
                     #the point is close enough
-                    print(sessionData['sessionId'], ": is close enough")
+                    print(session.sessionId, ": is close enough")
                     closeEnoughSessions.append(session)
                 else:
-                    print(session.sessionID, ": is to far away")
+                    print(session.sessionId, ": is to far away")
     
     print("These are all the close enough sessions", closeEnoughSessions)
     return closeEnoughSessions
