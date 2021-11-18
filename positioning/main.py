@@ -31,14 +31,14 @@ referenceSessionDirLocation = "/Volumes/GeomaticsProjects1/Projects/2025-03 Proj
 
 
 # Step 2: check for relevant Reference data
-from findBestSessions import FindBestSessions
-closeEnoughSessions = FindBestSessions(referenceSessionDirLocation, np.array(testGlobalPosition), testGlobalAccuracy)
+from session import find_close_sessions
+closeEnoughSessions = find_close_sessions(referenceSessionDirLocation, np.array(testGlobalPosition), testGlobalAccuracy)
 
 
 # Step 3: 2D Check
 from compareImageSession import CompareImageSession
-from imageTransform import ImageTransform
-from bestResult import BestResult
+from transform import ImageTransform
+from best_result import BestResult
 
 testSessionJsonPath = testSessionDirLocation + "/SessionData.json"
 bestResult = BestResult(0,0,0,0,0)
@@ -54,13 +54,13 @@ for referenceSession in closeEnoughSessions:
         bestTestImage = testImage
         bestSession = referenceSession
 
-from getGlobalPositionOffset import GetGlobalPositionOffset
+from transform import get_global_position_offset
 from transform import Transform
 import json
 
 refSessionJson = json.load(open(bestSession,))
 bestGlobalPosition = Transform(refSessionJson["sessionId"],refSessionJson["globalPosition"], refSessionJson["globalRotation"], [1,1,1])
 
-newGlobalPosition =  GetGlobalPositionOffset(bestTestImage, bestRefImage, bestGlobalPosition, bestResult.transMatrix)
+newGlobalPosition =  get_global_position_offset(bestTestImage, bestRefImage, bestGlobalPosition, bestResult.transMatrix)
 
 print(newGlobalPosition)

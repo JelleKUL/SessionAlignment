@@ -1,27 +1,25 @@
 import cv2
 import numpy as np
-import cameraMatrixCalculator as CMC
-from imageTransform import ImageTransform
+import matrix as mat
+from transform import ImageTransform
 
 MAX_FEATURES = 500
 GOOD_MATCH_PERCENT = 0.15
 
-
-# Compares 2 images and returns the transformation and likelyhood of being a good match
-def CompareImage(imTest,imRef):
+def compare_image(imTest : ImageTransform,imRef: ImageTransform):
     """Compares 2 images and returns the transformation and likelyhood of being a good match"""
     
-    [matchScore, matches, keypoints1, keypoints2] = FindMatches(imTest, imRef)
-    essentialMatrix = CalculateTransformationMatrix(imTest, imRef, matches, keypoints1,keypoints2)
+    [matchScore, matches, keypoints1, keypoints2] = find_matches(imTest.path, imRef.path)
+    essentialMatrix = calculate_transformation_matrix(imTest, imRef, matches, keypoints1,keypoints2)
     return matchScore, essentialMatrix
    
 
-def FindMatches(imTest, imRef):
+def find_matches(imTestPath : str, imRefPath : str):
     """Finds matches between 2 images"""
 
     # Convert images to grayscale
-    im1Gray = cv2.cvtColor(imTest, cv2.COLOR_BGR2GRAY)
-    im2Gray = cv2.cvtColor(imRef, cv2.COLOR_BGR2GRAY)
+    im1Gray = cv2.cvtColor(cv2.imread(imTestPath), cv2.COLOR_BGR2GRAY)
+    im2Gray = cv2.cvtColor(cv2.imread(imRefPath), cv2.COLOR_BGR2GRAY)
 
     # Detect ORB features and compute descriptors.
     orb = cv2.ORB_create(MAX_FEATURES)
@@ -39,19 +37,22 @@ def FindMatches(imTest, imRef):
     numGoodMatches = int(len(matches) * GOOD_MATCH_PERCENT)
     matches = matches[:numGoodMatches]
 
-     # calculate the match score
-     # right now, it's just the average distances of the best points
-    matchScore = sum(matches.disance) / len(matches)
+    # calculate the match score
+    # right now, it's just the average distances of the best points
+    matchScore = 0
+    for i, match in enumerate(matches):
+        matchScore += match.distance
+    matchScore /= len(matches)
 
     return matchScore, matches, keypoints1, keypoints2
 
 
-def CalculateTransformationMatrix(imTest: ImageTransform, imRef : ImageTransform, matches, keypoints1, keypoints2):
+def calculate_transformation_matrix(imTest: ImageTransform, imRef : ImageTransform, matches, keypoints1, keypoints2):
     """Calculates the tranformation between 2 matched images"""
     
     #Calculate the camera matrices
-    imTestCam = CMC.GetCameraMatrix(imTest.fov, imTest.path)
-    imRefCam = CMC.GetCameraMatrix(imRef.fov, imRef.path)
+    imTestCam = mat.camera_matrix(imTest.fov, imTest.path)
+    imRefCam = mat.camera_matrix(imRef.fov, imRef.path)
 
     # Extract location of good matches
     points1 = np.zeros((len(matches), 2), dtype=np.float32)
@@ -72,7 +73,7 @@ def CalculateTransformationMatrix(imTest: ImageTransform, imRef : ImageTransform
 
     return E
 
-def DrawMatches():
+def draw_matches(im1, keypoints1, im2, keypoints2, matches, imRef, imTest):
     """Generates a new image with all the matches displayed"""
 
     # Draw top matches

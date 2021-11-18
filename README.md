@@ -17,7 +17,7 @@ The main goal of this package is to align the XR device and it's recorded to ref
 This package can estimate the device's global position using XR input data:
 - 2D images with relative transform data
 - 3D meshes
-- Estimated GPS Location + accuraccy
+- Estimated GPS Location + accuracy
 
 ### Reference Data
 
@@ -31,7 +31,7 @@ The data is stored using standardized [RDF](https://www.w3.org/RDF/) data to mak
 
 ## Sub selection of reference data
 
-Comparing the input data against all the existing reference data on a server, would not only take a very long time, but is also not nescessary. We can make a sub selection of the refernce data using the GPS and its accuracy to check which reference data sets have data that is close enough.
+Comparing the input data against all the existing reference data on a server, would not only take a very long time, but is also not necessary. We can make a sub selection of the reference data using the GPS and its accuracy to check which reference data sets have data that is close enough.
 
 This is done using:
 ```py
@@ -40,6 +40,19 @@ def FindBestSessions(path: str, coordinates: np.array, maxDistance: float):
 which returns an array of json reference file paths
 
 ## 2D Check
+
+The images and all their information are stored in a `ImageTransform`:
+```py
+class ImageTransform:
+    id = ""
+    pos = (0,0,0)
+    rot = (0,0,0,0)
+    fov = 0
+    path = ""
+    sessionDataPath = ""
+    cameraMatrix = [[0,0,0],[0,0,0],[0,0,0]]
+```
+This is the main datatype to pass around in the different functions
 
 You can compare the input data and the reference data using:
 ```py
@@ -59,7 +72,7 @@ class BestResult:
 
 ### Feature check
 
-all the images are compared against eachother using Image features (currently ORB).
+all the images are compared against each other using Image features (currently ORB).
 Images that have enough matches will used for the next step
 
 ### Creating the transformation matrix
