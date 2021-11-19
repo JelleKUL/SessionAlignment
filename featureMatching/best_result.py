@@ -1,6 +1,6 @@
 class BestResult:
-        def __init__(self,testImage, refImage, transMatrix, matchAmount):
+        def __init__(self,testImage, refImage, transMatrix, matchScore):
             self.testImage = testImage
             self.refImage = refImage
             self.transMatrix = transMatrix
-            self.matchAmount = matchAmount
+            self.matchScore = matchScore

@@ -73,3 +73,51 @@ def get_global_position_offset(testImageTransform: ImageTransform, refImageTrans
 
 
     return testGlobalTransform
+
+def triangulate_session(image1: ImageTransform, image2: ImageTransform, transMatrix1, transMatrix2):
+    """Calculates a new transform based on 2 Essential transformations"""
+
+    #calculate the min distance between the 2 resulting directions with a given scale factor
+    scale = 1
+
+    pos1 = get_position(scale, image1, )
+    distance = 
+
+def get_position(scaleFactor, imageTransform: ImageTransform, translation : np.array):
+    """Returns the translation in function of a scale factor"""
+
+    newPosition = imageTransform.pos + scaleFactor * quaternion.as_rotation_matrix(imageTransform.rot) @ translation
+
+    return newPosition
+
+# helper functions (source https://github.com/harish-vnkt/structure-from-motion)
+def check_pose(E):
+    """Retrieves the rotation and translation components from the essential matrix by decomposing it and verifying the validity of the 4 possible solutions"""
+
+    R1, R2, t1, t2 = get_camera_from_E(E)  # decompose E
+    if not check_determinant(R1):
+        R1, R2, t1, t2 = get_camera_from_E(-E)  # change sign of E if R1 fails the determinant test
+
+    return R1, R2, t1, t2
+        
+
+def get_camera_from_E(E):
+    """Calculates rotation and translation component from essential matrix"""
+
+    W = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
+    W_t = W.T
+    u, w, vt = np.linalg.svd(E)
+
+    R1 = u @ W @ vt
+    R2 = u @ W_t @ vt
+    t1 = u[:, -1].reshape((3, 1))
+    t2 = - t1
+    return R1, R2, t1, t2
+
+def check_determinant(R):
+    """Validates using the determinant of the rotation matrix"""
+
+    if np.linalg.det(R) + 1.0 < 1e-9:
+        return False
+    else:
+        return True

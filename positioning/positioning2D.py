@@ -38,33 +38,45 @@ def get_2D_transformation(testSession : Session, refSessions : list[Session]):
 
 
 def compare_session(testSession : Session, refSession : Session):
-    results = []
-    bestResult = BestResult(0,0,0,0)
+    """Checks a test session against a reference session, returns the 3 best matching images"""
+    results = [] # a list of all the results
+    bestResults = [] # a list of the 2 best results
+
     nrCheck = 0
     totalCheck = len(testSession.imageTransforms) * len(refSession.imageTransforms)
 
-    for refImageTransform in refSession.imageTransforms:
+    # loop over every test image in the session, find the 2 best referenc images and keep them
+    for testImageTransform  in testSession.imageTransforms:
 
-        refImageTransform.image = cv2.imread(refImageTransform.path,cv2.IMREAD_COLOR)
+        testImageTransform.image = cv2.imread(testImageTransform.path,cv2.IMREAD_COLOR)
+        bestResults = []
 
-        for testImageTransform in testSession.imageTransforms:
+        for refImageTransform in refSession.imageTransforms:
 
-            testImageTransform.image = cv2.imread(testImageTransform.path,cv2.IMREAD_COLOR)
-            print("These are the image paths:")
-            print(testImageTransform.path)
-            print(refImageTransform.path)
+            refImageTransform.image = cv2.imread(refImageTransform.path,cv2.IMREAD_COLOR)
 
             matchScore, essentialMatrix = compare_image(testImageTransform, refImageTransform)
-            results.append(BestResult(testImageTransform,refImageTransform,essentialMatrix,matchScore))
+            newResult = BestResult(testImageTransform,refImageTransform,essentialMatrix,matchScore)
+            results.append(newResult)
+            print("Matchscore: " , matchScore)
+            print("EssentialMatrix: \n", essentialMatrix)
 
-            # if the new match amount is higher then the previous one, set this to the new best result
-            if(bestResult.matchAmount < matchScore):
-                bestResult = results[-1]
-            
+            # check if the newResult is in the top2 of results
+            if(len(bestResults) < 2):
+                bestResults.append(newResult)
+            elif(matchScore > (min(bestResults[0].matchScore, bestResults[1].matchScore))):
+                #the matchscore is higher than atleast on of the other results
+                if(bestResults[0].matchScore > bestResults[1].matchScore):
+                    bestResults = [newResult, bestResults[0].matchScore]
+                else:
+                    bestResults = [newResult, bestResults[1].matchScore]
+
             nrCheck +=1
             print(str(nrCheck) + "/" + str(totalCheck) + " checks complete")
 
-    print("This is the best image with " + str(bestResult.matchAmount) + " match amount" )
-    print("Estimated homography : \n",  bestResult.transMatrix)
+        # once The 2 best results are determined, calculate the transformation
+
+    print("This is the best image with " + str(bestResult.matchScore) + " match amount" )
+    print("Essential matrix : \n",  bestResult.transMatrix)
 
     return bestResult
