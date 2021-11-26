@@ -16,7 +16,7 @@ def camera_matrix(fov, referenceImagePath):
     f_x = imageSize[0] / math.tan(math.radians(a_x) / 2 )
     f_y = imageSize[1] / math.tan(math.radians(a_y) / 2)
 
-    print("imageSize: " + str(imageSize))
+    #print("imageSize: " + str(imageSize))
 
     return np.array([[f_x, 0, imageSize[0]], [0, f_y, imageSize[1]],[0,0,1]])
 

@@ -3,6 +3,8 @@
 import numpy as np
 import quaternion
 import os
+from scipy import optimize
+import cv2
 
 IMG_EXTENSION = ".jpg"
 
@@ -31,6 +33,10 @@ class ImageTransform:
         self.fov = dict["fov"]
         self.path = os.path.join(path, (self.id + IMG_EXTENSION))
         return self
+
+    def get_cv2_image(this):
+        this.image = cv2.imread(this.path,cv2.IMREAD_COLOR)
+        return this.image
     
 
 class Transform:
@@ -51,8 +57,8 @@ def get_global_position_offset(testImageTransform: ImageTransform, refImageTrans
     testGlobalTransform = 0
 
     # Put the refImage in global coordinate system using the global transform
-    newPos = dict_to_np_vector3(refImageTransform.pos) + dict_to_np_vector3(refGlobalTransform.pos)
-    newRot = dict_to_quaternion(refImageTransform.rot) * dict_to_quaternion(refGlobalTransform.rot)
+    newPos = refImageTransform.pos + refGlobalTransform.pos
+    newRot = refImageTransform.rot * refGlobalTransform.rot
     globalRefImageTransform = Transform(refImageTransform.id,newPos ,newRot,1)
 
     #transform the new globalrefImage to the testImage
@@ -79,15 +85,51 @@ def triangulate_session(image1: ImageTransform, image2: ImageTransform, transMat
 
     #calculate the min distance between the 2 resulting directions with a given scale factor
     scale = 1
+    translation1, rot1 = get_translation(transMatrix1)
+    translation2, rot2 = get_translation(transMatrix2)
+    
+    def get_distance(x): 
+        pos1 = get_position(x, image1, translation1)
+        pos2 = get_position(x, image2, translation2)
+        return np.linalg.norm(pos2-pos1)
+    def get_distance_inverse(x): 
+        pos1 = get_position(x, image1, translation1)
+        pos2 = get_position(x, image2, -translation2)
+        return np.linalg.norm(pos2-pos1)
+    def get_distance_array(x): 
+        pos1 = get_position(x[0], image1, translation1)
+        pos2 = get_position(x[1], image2, translation2)
+        return np.linalg.norm(pos2-pos1)
 
-    pos1 = get_position(scale, image1, )
-    distance = 
+    minimum1 = optimize.fmin(get_distance, 1)
+    minimum2 = optimize.fmin(get_distance_array, [1,1])
+    minimum3 = optimize.fmin(get_distance_inverse, 1)
+    print("Normal, minimum:", minimum1[0])
+    print("Inverse, minimum:", minimum3[0])
+    print("array, x1:", minimum2[0], "x2:", minimum2[1])
+    print("")
+    if(get_distance_inverse(minimum3) < get_distance(minimum1)):
+        scale = minimum3[0]
+        pos1 = get_position(scale, image1, translation1)
+        pos2 = get_position(scale, image2, -translation2)
+        newPos =(pos1 + pos2)/2
+        return newPos, rot1, pos1,pos2
+    if(get_distance(minimum1) < get_distance_array(minimum2)):
+        scale = minimum1[0]
+        pos1 = get_position(scale, image1, translation1)
+        pos2 = get_position(scale, image2, translation2)
+        newPos =(pos1 + pos2)/2
+        return newPos, rot1, pos1,pos2
+    else:
+        pos1 = get_position(minimum2[0], image1, translation1)
+        pos2 = get_position(minimum2[1], image2, translation2)
+        newPos =(pos1 + pos2)/2
+        return newPos, rot1, pos1,pos2
+    
 
 def get_position(scaleFactor, imageTransform: ImageTransform, translation : np.array):
     """Returns the translation in function of a scale factor"""
-
-    newPosition = imageTransform.pos + scaleFactor * quaternion.as_rotation_matrix(imageTransform.rot) @ translation
-
+    newPosition = imageTransform.pos + scaleFactor * (quaternion.as_rotation_matrix(imageTransform.rot) @ translation.T).T
     return newPosition
 
 # helper functions (source https://github.com/harish-vnkt/structure-from-motion)
@@ -99,7 +141,11 @@ def check_pose(E):
         R1, R2, t1, t2 = get_camera_from_E(-E)  # change sign of E if R1 fails the determinant test
 
     return R1, R2, t1, t2
-        
+
+def get_translation(E):
+    R1, R2, t1, t2 = get_camera_from_E(E)
+
+    return t1, R1
 
 def get_camera_from_E(E):
     """Calculates rotation and translation component from essential matrix"""
@@ -110,7 +156,7 @@ def get_camera_from_E(E):
 
     R1 = u @ W @ vt
     R2 = u @ W_t @ vt
-    t1 = u[:, -1].reshape((3, 1))
+    t1 = u[:, -1].reshape((1, 3))
     t2 = - t1
     return R1, R2, t1, t2
 
