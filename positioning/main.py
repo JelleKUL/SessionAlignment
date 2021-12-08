@@ -11,7 +11,7 @@
     # Calculate the transformation between the two images
     # calculate the inverse transformation to give the test data a Reference global position
 # Step 4: 3D Check
-    # compare the test mesh against relevant point clouds
+    # Compare the test mesh against relevant point clouds
     # Compare the test mesh against BIM models
     # Perform a CCP for the final alignment
 # Step 5: Choosing final Position
