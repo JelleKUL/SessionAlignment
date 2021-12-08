@@ -39,13 +39,6 @@ class ImageTransform:
         return this.image
     
 
-class Transform:
-    def __init__(self, id, pos, rot, scale):
-        self.id = id
-        self.pos = pos
-        self.rot = rot
-        self.scale = scale
-
 
 def dict_to_quaternion(dict):
     return np.quaternion(dict["w"],dict["x"],dict["y"],dict["z"])
@@ -59,31 +52,38 @@ def get_global_position_offset(testImageTransform: ImageTransform, refImageTrans
     # Put the refImage in global coordinate system using the global transform
     newPos = refImageTransform.pos + refGlobalTransform.pos
     newRot = refImageTransform.rot * refGlobalTransform.rot
-    globalRefImageTransform = Transform(refImageTransform.id,newPos ,newRot,1)
+    #globalRefImageTransform = Transform(refImageTransform.id,newPos ,newRot,1)
 
     #transform the new globalrefImage to the testImage
-    globalTestImageTransform = Transform(testImageTransform.id, 0,0,1)
+    #globalTestImageTransform = Transform(testImageTransform.id, 0,0,1)
 
     #print("array:" + str(np.array(transformationMatrix)) + ", position:" + str(np.transpose(globalRefImageTransform.pos)))
-    globalTestImageTransform.pos =  np.matmul(np.array(transformationMatrix), np.transpose(globalRefImageTransform.pos))
+    #globalTestImageTransform.pos =  np.matmul(np.array(transformationMatrix), np.transpose(globalRefImageTransform.pos))
 
 
-    testGlobalTransform = globalTestImageTransform.pos - dict_to_np_vector3(testImageTransform.pos)
+    #testGlobalTransform = globalTestImageTransform.pos - dict_to_np_vector3(testImageTransform.pos)
 
     print("The reference Image Global position: " + str(newPos))
     print("The reference Image Global rotation: " + str(newRot))
     print("The transformationMatrix: \n" + str(transformationMatrix))
     print("The test Image local position: " + str(dict_to_np_vector3(testImageTransform.pos)))
-    print("The test Image Global position: " + str(globalTestImageTransform.pos))
+    #print("The test Image Global position: " + str(globalTestImageTransform.pos))
     print("The Calculated test Global offset:" + str(testGlobalTransform))
 
 
     return testGlobalTransform
 
+def get_session_scale(image1: ImageTransform, image2: ImageTransform, transMatrix):
+    """Calculates the pixel scale of a transformation matrix"""
+
+    translation, rot = get_translation(transMatrix)
+    if (np.linalg.norm(translation)): return 0
+    scale = np.linalg.norm(image1.pos - image2.pos) / np.linalg.norm(translation)
+    return scale
+
 def triangulate_session(image1: ImageTransform, image2: ImageTransform, transMatrix1, transMatrix2):
     """Calculates a new transform based on 2 Essential transformations"""
-
-    #calculate the min distance between the 2 resulting directions with a given scale factor
+    
     scale = 1
     translation1, rot1 = get_translation(transMatrix1)
     translation2, rot2 = get_translation(transMatrix2)
@@ -96,7 +96,7 @@ def triangulate_session(image1: ImageTransform, image2: ImageTransform, transMat
         pos1 = get_position(x, image1, translation1)
         pos2 = get_position(x, image2, -translation2)
         return np.linalg.norm(pos2-pos1)
-    def get_distance_array(x): 
+    def get_distance_array(x):
         pos1 = get_position(x[0], image1, translation1)
         pos2 = get_position(x[1], image2, translation2)
         return np.linalg.norm(pos2-pos1)
@@ -104,27 +104,24 @@ def triangulate_session(image1: ImageTransform, image2: ImageTransform, transMat
     minimum1 = optimize.fmin(get_distance, 1)
     minimum2 = optimize.fmin(get_distance_array, [1,1])
     minimum3 = optimize.fmin(get_distance_inverse, 1)
-    print("Normal, minimum:", minimum1[0])
-    print("Inverse, minimum:", minimum3[0])
-    print("array, x1:", minimum2[0], "x2:", minimum2[1])
-    print("")
+
     if(get_distance_inverse(minimum3) < get_distance(minimum1)):
         scale = minimum3[0]
         pos1 = get_position(scale, image1, translation1)
         pos2 = get_position(scale, image2, -translation2)
         newPos =(pos1 + pos2)/2
-        return newPos, rot1, pos1,pos2
+        return newPos, rot1, pos1,pos2, scale
     if(get_distance(minimum1) < get_distance_array(minimum2)):
         scale = minimum1[0]
         pos1 = get_position(scale, image1, translation1)
         pos2 = get_position(scale, image2, translation2)
         newPos =(pos1 + pos2)/2
-        return newPos, rot1, pos1,pos2
+        return newPos, rot1, pos1,pos2, scale
     else:
         pos1 = get_position(minimum2[0], image1, translation1)
         pos2 = get_position(minimum2[1], image2, translation2)
         newPos =(pos1 + pos2)/2
-        return newPos, rot1, pos1,pos2
+        return newPos, rot1, pos1,pos2, minimum2
     
 
 def get_position(scaleFactor, imageTransform: ImageTransform, translation : np.array):
