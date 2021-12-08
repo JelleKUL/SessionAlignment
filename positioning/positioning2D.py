@@ -23,7 +23,7 @@ class BestResult:
         self.transMatrix = transMatrix
         self.matchScore = matchScore
 
-def get_2D_transformation(testSession : Session, refSessions : list[Session]):
+def get_2D_transformation(testSession : Session, refSessions : "list[Session]"):
     """Returns the estimated Global transform offset in relation to the best reference session in the list"""
     
     #find the image with the best match rate

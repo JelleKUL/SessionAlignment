@@ -10,6 +10,13 @@ python -m pip install git+https://github.com/JelleKUL/PythonDataAlignment.git
 ## Main Use
 The main goal of this package is to align the XR device and it's recorded to reference data like point clouds or BIM models.
 
+## workflow
+1. Gather all the data (read the files and convert them to session objects)
+1. Make a sub selection to get only the relevant reference data
+1. Compare images to find matches and calculate the transformation
+1. Compare Meshes/ point clouds and calculate the transformation
+1. Pick the final transformation
+
 ## Inputs
 
 ### Input data
