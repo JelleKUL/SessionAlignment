@@ -35,7 +35,7 @@ def find_matches(imTest : ImageTransform, imRef : ImageTransform):
     matches = matcher.match(descriptors1, descriptors2, None)
 
     # Sort matches by score
-    matches.sort(key=lambda x: x.distance, reverse=False)
+    matches = sorted(matches, key = lambda x:x.distance)
     # only use the best features
     if(len(matches) < MAX_MATCHES):
         print("only found", len(matches), "good matches")
@@ -79,7 +79,7 @@ def calculate_transformation_matrix(imTest: ImageTransform, imRef : ImageTransfo
                 singlePointColor = None,
                 matchesMask = mask, # draw only inliers
                 flags = 2)
-    imMatches = cv2.drawMatches(imTest.get_cv2_image(),keypoints1,imRef.get_cv2_image(),keypoints2,matches,None,**draw_params)
+    imMatches = cv2.drawMatches(imTest.get_cv2_image(),keypoints1,imRef.get_cv2_image(),keypoints2,matches,None, flags=2)
 
     E = imTestCam.T @ F @ imRefCam
 
@@ -120,9 +120,10 @@ def match_bfm_orb(imTest : ImageTransform, imRef : ImageTransform):
     # Match features.
     matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     matches = matcher.match(descriptors1, descriptors2, None)
-
+    print("Matches:", matches)
     # Sort matches by score
-    matches.sort(key=lambda x: x.distance, reverse=False)
+    matches = sorted(matches, key = lambda x:x.distance)
+
     # only use the best features
     if(len(matches) < MAX_MATCHES):
         print("only found", len(matches), "good matches")
@@ -202,5 +203,5 @@ def drawlines(img1,img2,lines,pts1,pts2):
         color = tuple(np.random.randint(0,255,3).tolist())
         x0,y0 = map(int, [0, -r[2]/r[1] ])
         x1,y1 = map(int, [c, -(r[2]+r[0]*c)/r[1] ])
-        img1 = cv2.line(img1, (x0,y0), (x1,y1), color,1)
+        img1 = cv2.line(img1, (x0,y0), (x1,y1), color,3)
     return img1,img2
