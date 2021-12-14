@@ -46,5 +46,8 @@ def triangulation(kp1, kp2, T_1w, T_2w):
     X2 = T_2w[:3] @ X
     return X[:3], X1, X2 
 
+transformationMatrix1 = np.hstack(np.eye(3), [0,0,0])
+transformationMatrix2 = np.hstack()
+
 #cv2.waitKey(0)
 #newPos, rot1, pos1, pos2, scale = triangulate_session(image1, image2, E, Essential2)

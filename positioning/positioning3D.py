@@ -19,6 +19,12 @@ def import_mesh(path : str):
     print("Importing complete:",mesh)
     return mesh
 
+def to_pcd(mesh : o3d.geometry, nrOfPoints : int, factor : int = 5):
+    "Converts a triangle mesh to a point cloud with a given amount of points"
+    print("converting mesh to PCD with", nrOfPoints, "points")
+    pcd = mesh.sample_points_poisson_disk(nrOfPoints, factor)
+    print("Converting complete", pcd)
+    return pcd
 
 def cast_ray_in_mesh(mesh, startPoint : np.array, direction : np.array):
     "Casts a ray in a certain direction on a mesh, returns the distance to the hit"
@@ -49,6 +55,7 @@ def cast_ray_from_camera(mesh, startPoint : np.array, rotation : np.array):
     print("raycast distance:" , distance)
     return distance, startPoint + direction * distance
 
+
 #### Point Cloud ####
 
 def import_point_cloud(path : str):
@@ -57,6 +64,28 @@ def import_point_cloud(path : str):
     pcd = o3d.io.read_point_cloud(path)
     print("Importing complete:",pcd)
     return pcd
+
+def save_pcd(pcd, path : str):
+    o3d.io.write_point_cloud(path, pcd)
+
+def get_fpfh_features(pcd, radius):
+
+    print(":: Compute FPFH feature with search radius %.3f." % radius)
+    pcd_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
+        pcd,
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=100))
+    return pcd_fpfh
+
+def execute_fast_global_registration(source_pcd, target_pcd, source_fpfh,target_fpfh, radius):
+    
+    print(":: Apply fast global registration with distance threshold %.3f" \
+            % radius)
+    result = o3d.pipelines.registration.registration_fgr_based_on_feature_matching(
+        source_pcd, target_pcd, source_fpfh, target_fpfh,
+        o3d.pipelines.registration.FastGlobalRegistrationOption(
+            maximum_correspondence_distance=radius))
+    return result
+
 
 #### Generic 3D ####
 
@@ -91,7 +120,6 @@ def convert_to_open3d(pos : np.array, rot : np.array):
     newPos = np.multiply(pos ,np.array([-1,1,1]))
     newRot = np.multiply(rot ,np.array([-1,-1,1,1]))
 
-
 def show_geometries(geometries):
     "displays the array of meshes in a 3D view"
 
@@ -106,40 +134,98 @@ def show_geometries(geometries):
     viewer.run()
 
 
+#### Helper functions
 
-mesh = import_mesh("/Volumes/GeomaticsProjects1/Projects/2025-03 Project FWO SB Jelle/7.Data/21-11 Testbuilding Campus/RAW Data/Hololens/session-2021-11-25 16-09-47/mesh-2021-11-25 16-16-01.obj")
-mesh.compute_vertex_normals()
+def draw_registration_result(source, target, transformation):
+    source.paint_uniform_color([1, 0.706, 0])
+    target.paint_uniform_color([0, 0.651, 0.929])
+    source.transform(transformation)
+    o3d.visualization.draw_geometries([source, target],
+                                      zoom=0.4559,
+                                      front=[0.6452, -0.3036, -0.7011],
+                                      lookat=[1.9892, 2.0208, 1.8945],
+                                      up=[-0.2779, -0.9482, 0.1556])
 
-#print("max distance:",get_bounding_radius(mesh))
-#mesh_smp = mesh.simplify_vertex_clustering(
-#    voxel_size=max(mesh.get_max_bound() - mesh.get_min_bound()) / 32,
-#    contraction=o3d.geometry.SimplificationContraction.Average)
+def test():
 
-#startPoint = np.array([1,0,1])
-#direction = np.array([-1,-0.5,1])
+    mesh = import_mesh("/Volumes/GeomaticsProjects1/Projects/2025-03 Project FWO SB Jelle/7.Data/21-11 Testbuilding Campus/RAW Data/Hololens/session-2021-11-25 16-09-47/mesh-2021-11-25 16-16-01.obj")
+    mesh.compute_vertex_normals()
 
-#distance = cast_ray_in_mesh(mesh, startPoint, direction)
+    #print("max distance:",get_bounding_radius(mesh))
+    #mesh_smp = mesh.simplify_vertex_clustering(
+    #    voxel_size=max(mesh.get_max_bound() - mesh.get_min_bound()) / 32,
+    #    contraction=o3d.geometry.SimplificationContraction.Average)
 
-#if(distance != math.inf):
-#   print("The distance was not infinity:", distance)
-#   raycastLine = o3d.geometry.LineSet(
-#       points=o3d.utility.Vector3dVector([startPoint, startPoint + distance * (direction/ np.linalg.norm(np.array([-1,-0.5,1])))]),
-#       lines=o3d.utility.Vector2iVector([[0,1]]),
-#       )
+    #startPoint = np.array([1,0,1])
+    #direction = np.array([-1,-0.5,1])
 
-camPos = np.array([6.5,-0.2,1.4])
-camRot = np.quaternion(-0.96,-0.13,0.24,-0.02)
+    #distance = cast_ray_in_mesh(mesh, startPoint, direction)
 
-distance, target = cast_ray_from_camera(mesh, camPos, camRot)
+    #if(distance != math.inf):
+    #   print("The distance was not infinity:", distance)
+    #   raycastLine = o3d.geometry.LineSet(
+    #       points=o3d.utility.Vector3dVector([startPoint, startPoint + distance * (direction/ np.linalg.norm(np.array([-1,-0.5,1])))]),
+    #       lines=o3d.utility.Vector2iVector([[0,1]]),
+    #       )
 
-if(distance != math.inf):
-    print("The distance was not infinity:", distance)
-    raycastLine = o3d.geometry.LineSet(
-       points=o3d.utility.Vector3dVector([camPos, target]),
-       lines=o3d.utility.Vector2iVector([[0,1]]),
-       )
-    show_geometries([mesh,raycastLine])
+    camPos = np.array([6.5,-0.2,1.4])
+    camRot = np.quaternion(-0.96,-0.13,0.24,-0.02)
 
-#show_geometries([mesh,create_3d_camera([9.71,-0.07,1.5], [-0.987,-0.098,-0.1173,0.024]),create_3d_camera([6.5,-0.2,1.4], [-0.96,-0.13,0.24,-0.02])])
-    #show_geometries([mesh,raycastLine])
-#viewer.destroy_window()
+    distance, target = cast_ray_from_camera(mesh, camPos, camRot)
+
+    if(distance != math.inf):
+        print("The distance was not infinity:", distance)
+        raycastLine = o3d.geometry.LineSet(
+        points=o3d.utility.Vector3dVector([camPos, target]),
+        lines=o3d.utility.Vector2iVector([[0,1]]),
+        )
+        show_geometries([mesh,raycastLine])
+
+    #show_geometries([mesh,create_3d_camera([9.71,-0.07,1.5], [-0.987,-0.098,-0.1173,0.024]),create_3d_camera([6.5,-0.2,1.4], [-0.96,-0.13,0.24,-0.02])])
+        #show_geometries([mesh,raycastLine])
+    #viewer.destroy_window()
+
+def test3D():
+    
+#    mesh1 = import_mesh("/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/positioning/images/ref/mesh-2021-11-25 16-16-01.obj")
+#    mesh2 = import_mesh("/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/positioning/images/ref/mesh-2021-11-25 16-17-19.obj")
+#
+#    nrOfPoints = 100000
+#    pcd1 = to_pcd(mesh1, nrOfPoints)
+#    pcd2 = to_pcd(mesh2, nrOfPoints)
+#
+#    save_pcd(pcd1, "/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/positioning/images/ref/pcd1.pcd")
+#    save_pcd(pcd2, "/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/positioning/images/ref/pcd2.pcd")
+
+    pcd1 = o3d.io.read_point_cloud("/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/positioning/images/ref/pcd1.pcd")
+    pcd2 = o3d.io.read_point_cloud("/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/positioning/images/ref/pcd2.pcd")
+
+    print("Downsampling Pointclouds")
+    voxelSize = 0.1
+    voxel_pcd1 = pcd1.voxel_down_sample(voxelSize)
+    voxel_pcd2 = pcd2.voxel_down_sample(voxelSize)
+
+    fpfh_pcd1 = get_fpfh_features(voxel_pcd1, voxelSize * 5)
+    fpfh_pcd2 = get_fpfh_features(voxel_pcd2, voxelSize * 5)
+
+    result_fast = execute_fast_global_registration(voxel_pcd2, voxel_pcd1,fpfh_pcd2, fpfh_pcd1,voxelSize * 5)
+    #draw_registration_result(voxel_pcd1, voxel_pcd2, result_fast.transformation)
+    moved_pcd = voxel_pcd2.transform(result_fast.transformation)
+
+    #visualise
+    voxel_pcd1.paint_uniform_color([1, 0.706, 0])
+    voxel_pcd2.paint_uniform_color([0.706,1, 0])
+    #visualise
+#    pcd1.paint_uniform_color([0.5, 1, 0.5])
+#    pcd2.paint_uniform_color([1,0.5, 0.5])
+
+    show_geometries([voxel_pcd1, voxel_pcd2, moved_pcd])
+
+
+test3D()
+
+
+
+    
+
+

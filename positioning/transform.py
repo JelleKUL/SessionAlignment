@@ -77,7 +77,7 @@ def get_session_scale(image1: ImageTransform, image2: ImageTransform, transMatri
     """Calculates the pixel scale of a transformation matrix"""
 
     translation, rot = get_translation(transMatrix)
-    if (np.linalg.norm(translation)): return 0
+    if (np.linalg.norm(translation) == 0): return 0
     scale = np.linalg.norm(image1.pos - image2.pos) / np.linalg.norm(translation)
     return scale
 
