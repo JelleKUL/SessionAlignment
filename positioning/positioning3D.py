@@ -6,8 +6,18 @@ import quaternion
 
 
 
-def get_3D_transformation():
-    pass
+def get_3D_transformation(pcdTest : o3d.geometry, pcd2Ref : o3d.geometry, voxelSize : float):
+    "Calculate the estimated transformation between 2 point clouds with a given voxelSise"
+
+    voxelSize = 0.1
+    voxel_pcdTest = pcdTest.voxel_down_sample(voxelSize)
+    voxel_pcdRef = pcd2Ref.voxel_down_sample(voxelSize)
+
+    fpfh_pcdTest = get_fpfh_features(voxel_pcdTest, voxelSize * 5)
+    fpfh_pcdRef = get_fpfh_features(voxel_pcdRef, voxelSize * 5)
+
+    result_fast = execute_fast_global_registration(voxel_pcdTest, voxel_pcdRef,fpfh_pcdTest, fpfh_pcdRef,voxelSize * 5)
+    return result_fast.transform
 
 #### Triangle Mesh ####
 
@@ -19,7 +29,7 @@ def import_mesh(path : str):
     print("Importing complete:",mesh)
     return mesh
 
-def to_pcd(mesh : o3d.geometry, nrOfPoints : int, factor : int = 5):
+def to_pcd(mesh : o3d.geometry, nrOfPoints : int, factor : int = 2):
     "Converts a triangle mesh to a point cloud with a given amount of points"
     print("converting mesh to PCD with", nrOfPoints, "points")
     pcd = mesh.sample_points_poisson_disk(nrOfPoints, factor)
