@@ -19,6 +19,8 @@ class Session:
     boundingBox = [[0,0,0],[0,0,0]] #3x2 matrix from min x to max z
     imageTransforms = []
     meshIds = []
+    meshes = []
+    pcds = []
 
     def __init__(self, id = None, path= None, position= None, rotation= None, images= None, meshes= None):
         self.sessionId = id
