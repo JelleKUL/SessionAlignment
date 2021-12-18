@@ -3,6 +3,7 @@
 import os
 import json
 from math import sqrt
+import open3d as o3d
 
 import numpy as np
 
@@ -10,6 +11,7 @@ import transform
 
 JSON_ID = "SessionData.json"
 IMG_EXTENSION = ".jpg"
+MESH_EXTENSION = ".obj"
 
 class Session:
     sessionId = ""
@@ -41,6 +43,9 @@ class Session:
             newTransform = transform.ImageTransform().from_dict(data[1], path)
             self.imageTransforms.append(newTransform)
         self.meshIds = dict["meshIds"]
+        for data, i in enumerate(dict["meshIds"]):
+            newMesh = o3d.io.read_triangle_mesh( os.path.join(path, self.meshIds[i]) + MESH_EXTENSION)
+            self.meshes.append(newMesh)
         return self
 
     def from_path(self, path):

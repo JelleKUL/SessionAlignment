@@ -8,7 +8,6 @@ import os
 import cv2
 from compareImage import compare_image
 import transform
-import matrix
 from session import Session
 
 class BestResult:
@@ -16,6 +15,7 @@ class BestResult:
     refImage = 0
     transMatrix = 0
     matchScore = 0
+    featureMatches = None
 
     def __init__(self,testImage, refImage, transMatrix, matchScore):
         self.testImage = testImage
@@ -25,7 +25,7 @@ class BestResult:
 
 def get_2D_transformation(testSession : Session, refSessions : "list[Session]"):
     """Returns the estimated Global transform offset in relation to the best reference session in the list"""
-    
+    bestSessionResults = []
     #find the image with the best match rate
     for referenceSession in refSessions:
         results = compare_session(testSession, referenceSession)
@@ -46,6 +46,8 @@ def compare_session(testSession : Session, refSession : Session):
     nrCheck = 0
     totalCheck = len(testSession.imageTransforms) * len(refSession.imageTransforms)
 
+    print("Starting Comparing:", len(testSession.imageTransforms), "Against", len(refSession.imageTransforms), "Images")
+
     # loop over every test image in the session, find the 2 best referenc images and keep them
     for testImageTransform  in testSession.imageTransforms:
 
@@ -56,8 +58,9 @@ def compare_session(testSession : Session, refSession : Session):
 
             refImageTransform.image = cv2.imread(refImageTransform.path,cv2.IMREAD_COLOR)
 
-            matchScore, essentialMatrix = compare_image(testImageTransform, refImageTransform)
+            matchScore, essentialMatrix, comparisonImage = compare_image(testImageTransform, refImageTransform)
             newResult = BestResult(testImageTransform,refImageTransform,essentialMatrix,matchScore)
+            newResult.featureMatches = comparisonImage
             results.append(newResult)
             #print(newResult.__dict__)
 

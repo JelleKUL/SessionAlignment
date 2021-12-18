@@ -4,20 +4,16 @@ import open3d as o3d
 import numpy as np
 import quaternion
 
+from session import Session
 
 
-def get_3D_transformation(pcdTest : o3d.geometry, pcd2Ref : o3d.geometry, voxelSize : float):
+
+def get_3D_transformation(testSession : Session, refSessions : "list[Session]"):
     "Calculate the estimated transformation between 2 point clouds with a given voxelSise"
 
-    voxelSize = 0.1
-    voxel_pcdTest = pcdTest.voxel_down_sample(voxelSize)
-    voxel_pcdRef = pcd2Ref.voxel_down_sample(voxelSize)
+    pcd1 = testSession.meshIds[0]
 
-    fpfh_pcdTest = get_fpfh_features(voxel_pcdTest, voxelSize * 5)
-    fpfh_pcdRef = get_fpfh_features(voxel_pcdRef, voxelSize * 5)
-
-    result_fast = execute_fast_global_registration(voxel_pcdTest, voxel_pcdRef,fpfh_pcdTest, fpfh_pcdRef,voxelSize * 5)
-    return result_fast.transform
+    get_pcd_transformation()
 
 #### Triangle Mesh ####
 
@@ -95,6 +91,19 @@ def execute_fast_global_registration(source_pcd, target_pcd, source_fpfh,target_
         o3d.pipelines.registration.FastGlobalRegistrationOption(
             maximum_correspondence_distance=radius))
     return result
+
+def get_pcd_transformation(pcdTest : o3d.geometry, pcd2Ref : o3d.geometry, voxelSize : float):
+    "Calculate the estimated transformation between 2 point clouds with a given voxelSise"
+
+    voxelSize = 0.1
+    voxel_pcdTest = pcdTest.voxel_down_sample(voxelSize)
+    voxel_pcdRef = pcd2Ref.voxel_down_sample(voxelSize)
+
+    fpfh_pcdTest = get_fpfh_features(voxel_pcdTest, voxelSize * 5)
+    fpfh_pcdRef = get_fpfh_features(voxel_pcdRef, voxelSize * 5)
+
+    result_fast = execute_fast_global_registration(voxel_pcdTest, voxel_pcdRef,fpfh_pcdTest, fpfh_pcdRef,voxelSize * 5)
+    return result_fast.transform
 
 
 #### Generic 3D ####
@@ -230,9 +239,6 @@ def test3D():
 #    pcd2.paint_uniform_color([1,0.5, 0.5])
 
     show_geometries([voxel_pcd1, voxel_pcd2, moved_pcd])
-
-
-test3D()
 
 
 

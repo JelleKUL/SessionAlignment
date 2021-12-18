@@ -1,7 +1,6 @@
 import math
 import cv2
 import numpy as np
-import matrix as mat
 from transform import ImageTransform
 from matplotlib import pyplot as plt
 
@@ -56,8 +55,8 @@ def calculate_transformation_matrix(imTest: ImageTransform, imRef : ImageTransfo
     """Calculates the tranformation between 2 matched images"""
     
     #Calculate the camera matrices
-    imTestCam = mat.camera_matrix(imTest.fov, imTest.path)
-    imRefCam = mat.camera_matrix(imRef.fov, imRef.path)
+    imTestCam = imTest.get_camera_matrix()
+    imRefCam = imRef.get_camera_matrix()
 
     # Extract location of good matches
     points1 = np.zeros((len(matches), 2), dtype=np.float32)

@@ -1,10 +1,12 @@
 """Classes and Functions to manage image transforms and general transformations"""
 
+import math
+import os
+
+import cv2
 import numpy as np
 import quaternion
-import os
 from scipy import optimize
-import cv2
 
 IMG_EXTENSION = ".jpg"
 
@@ -14,7 +16,7 @@ class ImageTransform:
     rot = (0,0,0,0)
     fov = 0
     path = "" # the path of the image
-    cameraMatrix = [[0,0,0],[0,0,0],[0,0,0]]
+    cameraMatrix = None
     image = None
 
     def __init__(self, id = None, pos= None, rot= None, fov= None, path= None):
@@ -35,8 +37,23 @@ class ImageTransform:
         return self
 
     def get_cv2_image(this):
-        this.image = cv2.imread(this.path,cv2.IMREAD_COLOR)
+        """ Returns the Image in color as a cv2/numpy array"""
+        if(this.image is None):
+            this.image = cv2.imread(this.path,cv2.IMREAD_COLOR)
         return this.image
+
+    def get_camera_matrix(this):
+        """Calculate the Camera matrix with the vertical fov"""
+
+        if(this.cameraMatrix is None):
+            imageSize = [this.get_cv2_image().shape[1]/2,this.get_cv2_image().shape[0]/2] #width, height
+            aspectRatio = imageSize[0] / imageSize[1]
+            a_x = this.fov * aspectRatio
+            a_y = this.fov
+            f_x = imageSize[0] / math.tan(math.radians(a_x) / 2 )
+            f_y = imageSize[1] / math.tan(math.radians(a_y) / 2)
+            this.cameraMatrix = np.array([[f_x, 0, imageSize[0]], [0, f_y, imageSize[1]],[0,0,1]])
+        return this.cameraMatrix
     
 
 
