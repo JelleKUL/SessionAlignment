@@ -11,7 +11,8 @@ import transform
 
 JSON_ID = "SessionData.json"
 IMG_EXTENSION = ".jpg"
-MESH_EXTENSION = ".obj"
+MESH_EXTENSION = [".obj",".fbx" ]
+PCD_EXTENSION = [".pcd", ".pts", ".ply"]
 
 class Session:
     sessionId = ""
@@ -21,7 +22,7 @@ class Session:
     boundingBox = [[0,0,0],[0,0,0]] #3x2 matrix from min x to max z
     imageTransforms = []
     meshIds = []
-    meshes = []
+    geometries = []
     pcds = []
 
     def __init__(self, id = None, path= None, position= None, rotation= None, images= None, meshes= None):
@@ -43,9 +44,7 @@ class Session:
             newTransform = transform.ImageTransform().from_dict(data[1], path)
             self.imageTransforms.append(newTransform)
         self.meshIds = dict["meshIds"]
-        for data, i in enumerate(dict["meshIds"]):
-            newMesh = o3d.io.read_triangle_mesh( os.path.join(path, self.meshIds[i]) + MESH_EXTENSION)
-            self.meshes.append(newMesh)
+        self.geometries = self.get_geometries()
         return self
 
     def from_path(self, path):
@@ -74,6 +73,27 @@ class Session:
     def set_global_pos_rot(this,pos, rot):
         this.globalPosition = pos
         this.globalRotation = rot
+
+    def get_geometries(self):
+        "returns a list of all the geometries that are linked to this session"
+        for file in os.listdir(self.dirPath):
+            for id in self.meshIds:
+                if file.find(id) != -1:
+                    #a 3D format file is found, now check if it's a pcd or mesh
+                    if file.endswith(tuple(MESH_EXTENSION)):
+                        newMesh = o3d.io.read_triangle_mesh(os.path.join(self.dirPath, file))
+                        if not newMesh.has_vertex_normals():
+                            newMesh.compute_vertex_normals()
+                        self.geometries.append(newMesh)
+                    elif file.endswith(tuple(PCD_EXTENSION)):
+                        newPcd = o3d.io.read_point_cloud(os.path.join(self.dirPath, file))
+                        self.geometries.append(newPcd)
+        return self.geometries
+
+
+    def get_global_transformation(this, otherSession, transformation):
+        "returns a global position and rotation based on the other session"
+        
 
     def to_json():
         """converts this session object back to json"""

@@ -3,12 +3,13 @@ from numpy import linalg
 import open3d as o3d
 import numpy as np
 import quaternion
+import matplotlib
 
 from session import Session
 
 
 
-def get_3D_transformation(testSession : Session, refSessions : "list[Session]"):
+def get_3D_transformation(testSession : Session, refSessions : "list[Session]", resolution = 0.05):
     "Calculate the estimated transformation between 2 point clouds with a given voxelSise"
 
     pcd1 = testSession.meshIds[0]
@@ -22,6 +23,8 @@ def import_mesh(path : str):
 
     print("Importing mesh from:", path)
     mesh = o3d.io.read_triangle_mesh(path)
+    #if not mesh.has_vertex_normals():
+    mesh.compute_vertex_normals()
     print("Importing complete:",mesh)
     return mesh
 
@@ -95,15 +98,19 @@ def execute_fast_global_registration(source_pcd, target_pcd, source_fpfh,target_
 def get_pcd_transformation(pcdTest : o3d.geometry, pcd2Ref : o3d.geometry, voxelSize : float):
     "Calculate the estimated transformation between 2 point clouds with a given voxelSise"
 
-    voxelSize = 0.1
     voxel_pcdTest = pcdTest.voxel_down_sample(voxelSize)
     voxel_pcdRef = pcd2Ref.voxel_down_sample(voxelSize)
+
+    voxel_pcdTest.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
+        radius=voxelSize*2, max_nn=30))
+    voxel_pcdRef.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
+        radius=voxelSize*2, max_nn=30))
 
     fpfh_pcdTest = get_fpfh_features(voxel_pcdTest, voxelSize * 5)
     fpfh_pcdRef = get_fpfh_features(voxel_pcdRef, voxelSize * 5)
 
     result_fast = execute_fast_global_registration(voxel_pcdTest, voxel_pcdRef,fpfh_pcdTest, fpfh_pcdRef,voxelSize * 5)
-    return result_fast.transform
+    return result_fast.transformation
 
 
 #### Generic 3D ####
@@ -139,21 +146,25 @@ def convert_to_open3d(pos : np.array, rot : np.array):
     newPos = np.multiply(pos ,np.array([-1,1,1]))
     newRot = np.multiply(rot ,np.array([-1,-1,1,1]))
 
-def show_geometries(geometries):
+def show_geometries(geometries, color = False):
     "displays the array of meshes in a 3D view"
 
     viewer = o3d.visualization.Visualizer()
     viewer.create_window()
     frame = o3d.geometry.TriangleMesh.create_coordinate_frame()
     viewer.add_geometry(frame)
-    for geometry in geometries:
+    for i, geometry in enumerate(geometries):
+        if color:
+            geometry.paint_uniform_color(matplotlib.colors.hsv_to_rgb([float(i)/len(geometries),0.8,0.8]))
         viewer.add_geometry(geometry)
     opt = viewer.get_render_option()
     opt.background_color = np.asarray([0.5, 0.5, 0.5])
+    opt.light_on = True
     viewer.run()
 
 
 #### Helper functions
+
 
 def draw_registration_result(source, target, transformation):
     source.paint_uniform_color([1, 0.706, 0])
@@ -164,6 +175,8 @@ def draw_registration_result(source, target, transformation):
                                       front=[0.6452, -0.3036, -0.7011],
                                       lookat=[1.9892, 2.0208, 1.8945],
                                       up=[-0.2779, -0.9482, 0.1556])
+
+
 
 def test():
 
