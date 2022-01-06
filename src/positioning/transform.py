@@ -17,6 +17,8 @@ class ImageTransform:
     fov = 0
     path = "" # the path of the image
     cameraMatrix = None
+    keypoints = []
+    descriptors = []
     image = None
 
     def __init__(self, id = None, pos= None, rot= None, fov= None, path= None):
@@ -54,7 +56,6 @@ class ImageTransform:
             f_y = imageSize[1] / math.tan(math.radians(a_y) / 2)
             this.cameraMatrix = np.array([[f_x, 0, imageSize[0]], [0, f_y, imageSize[1]],[0,0,1]])
         return this.cameraMatrix
-    
 
 
 def dict_to_quaternion(dict):
@@ -101,44 +102,20 @@ def get_session_scale(image1: ImageTransform, image2: ImageTransform, transMatri
 def triangulate_session(image1: ImageTransform, image2: ImageTransform, transMatrix1, transMatrix2):
     """Calculates a new transform based on 2 Essential transformations"""
     
-    scale = 1
     translation1, rot1 = get_translation(transMatrix1)
     translation2, rot2 = get_translation(transMatrix2)
     
-    def get_distance(x): 
-        pos1 = get_position(x, image1, translation1)
-        pos2 = get_position(x, image2, translation2)
-        return np.linalg.norm(pos2-pos1)
-    def get_distance_inverse(x): 
-        pos1 = get_position(x, image1, translation1)
-        pos2 = get_position(x, image2, -translation2)
-        return np.linalg.norm(pos2-pos1)
     def get_distance_array(x):
         pos1 = get_position(x[0], image1, translation1)
         pos2 = get_position(x[1], image2, translation2)
         return np.linalg.norm(pos2-pos1)
 
-    minimum1 = optimize.fmin(get_distance, 1)
-    minimum2 = optimize.fmin(get_distance_array, [1,1])
-    minimum3 = optimize.fmin(get_distance_inverse, 1)
+    minimum = optimize.fmin(get_distance_array, [1,1])
 
-    if(get_distance_inverse(minimum3) < get_distance(minimum1)):
-        scale = minimum3[0]
-        pos1 = get_position(scale, image1, translation1)
-        pos2 = get_position(scale, image2, -translation2)
-        newPos =(pos1 + pos2)/2
-        return newPos, rot1, pos1,pos2, scale
-    if(get_distance(minimum1) < get_distance_array(minimum2)):
-        scale = minimum1[0]
-        pos1 = get_position(scale, image1, translation1)
-        pos2 = get_position(scale, image2, translation2)
-        newPos =(pos1 + pos2)/2
-        return newPos, rot1, pos1,pos2, scale
-    else:
-        pos1 = get_position(minimum2[0], image1, translation1)
-        pos2 = get_position(minimum2[1], image2, translation2)
-        newPos =(pos1 + pos2)/2
-        return newPos, rot1, pos1,pos2, minimum2
+    pos1 = get_position(minimum[0], image1, translation1)
+    pos2 = get_position(minimum[1], image2, translation2)
+    newPos =(pos1 + pos2)/2
+    return newPos, rot1, pos1,pos2, minimum
     
 
 def get_position(scaleFactor, imageTransform: ImageTransform, translation : np.array):
