@@ -3,7 +3,7 @@
     # Find which session has the highest match rate
     # Find which Image has the highest match rate
     # Calculate the transformation between the two images
-    # calculate the inverse transformation to give the test data a Reference global position
+    # Calculate the inverse transformation to give the test data a Reference global position
 import os
 import cv2
 from compareImage import compare_image
@@ -29,13 +29,11 @@ def get_2D_transformation(testSession : Session, refSessions : "list[Session]"):
     #find the image with the best match rate
     for referenceSession in refSessions:
         results = compare_session(testSession, referenceSession)
-        print("These are the 2 best results:")
-        for result in results:
-            print(result.__dict__)
+        bestSessionResults.append(results)
 
     # calculate the transformation based on the match rate
 
-    pass
+    return bestSessionResults
 
 
 def compare_session(testSession : Session, refSession : Session):

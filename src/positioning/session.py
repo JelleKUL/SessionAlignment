@@ -6,7 +6,7 @@ from math import sqrt
 import open3d as o3d
 
 import numpy as np
-
+import quaternion
 import transform
 
 JSON_ID = "SessionData.json"
@@ -70,15 +70,17 @@ class Session:
             radius = max(radius, distance)
         return radius
 
-    def set_global_pos_rot(this,pos, rot):
-        this.globalPosition = pos
-        this.globalRotation = rot
+    def set_global_pos_rot(self,pos, rot):
+        self.globalPosition = pos
+        self.globalRotation = rot
 
     def get_geometries(self):
         "returns a list of all the geometries that are linked to this session"
+        self.geometries = []
         for file in os.listdir(self.dirPath):
             for id in self.meshIds:
                 if file.find(id) != -1:
+                    #print("found file with a meshID", id)
                     #a 3D format file is found, now check if it's a pcd or mesh
                     if file.endswith(tuple(MESH_EXTENSION)):
                         newMesh = o3d.io.read_triangle_mesh(os.path.join(self.dirPath, file))
@@ -91,8 +93,18 @@ class Session:
         return self.geometries
 
 
-    def get_global_transformation(this, otherSession, transformation):
-        "returns a global position and rotation based on the other session"
+    def get_transformation_matrix(self):
+        "returns the transformationmatrix of the session"
+        matrix = quaternion.as_rotation_matrix(self.globalRotation)
+        matrix = np.concatenate((matrix,self.globalPosition.T), axis = 1)
+        matrix = np.concatenate((matrix, np.array([0,0,0,1])), axis = 0)
+
+        return matrix
+
+    
+    def get_new_global_transformation_matrix(self, transformation):
+        "returns a global transformation matrix based on the original transform and the transformation to the new position"
+        return transformation @ self.get_transformation_matrix()
         
 
     def to_json():

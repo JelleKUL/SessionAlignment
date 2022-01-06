@@ -11,10 +11,36 @@ from session import Session
 
 def get_3D_transformation(testSession : Session, refSessions : "list[Session]", resolution = 0.05):
     "Calculate the estimated transformation between 2 point clouds with a given voxelSise"
+    sessionTransformations = []
 
-    pcd1 = testSession.meshIds[0]
+    for refSession in refSessions:
+        sessionTransformations.append(compare_session(testSession, refSession, resolution))
 
-    get_pcd_transformation()
+    return sessionTransformations
+
+    
+
+def compare_session(testSession, refSession, resolution = 0.05):
+    "compare 2 session against each other and returs the estimated transformation matrix"
+    nrCheck = 0
+    totalCheck = len(testSession.geometries) * len(refSession.geometries)
+    transformations = []
+
+    print("Starting Comparing:", len(testSession.geometries), "Against", len(refSession.geometries), "Geometries")
+
+    for testGeometry in testSession.geometries:
+        testPcd = testGeometry
+        if isinstance(testGeometry, o3d.geometry.TriangleMesh):
+            #the geometry is a mesh
+            testPcd = to_pcd(testGeometry, 100000,1)
+        for refGeometry in refSession.geometries:
+            refPcd = refGeometry
+            if isinstance(refGeometry, o3d.geometry.TriangleMesh):
+                #the geometry is a mesh
+                refPcd = to_pcd(refGeometry, 100000,1)
+            transformations.append(get_pcd_transformation(testPcd, refPcd, resolution))
+    
+    return transformations
 
 #### Triangle Mesh ####
 
@@ -229,8 +255,8 @@ def test3D():
 #    save_pcd(pcd1, "/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/positioning/images/ref/pcd1.pcd")
 #    save_pcd(pcd2, "/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/positioning/images/ref/pcd2.pcd")
 
-    pcd1 = o3d.io.read_point_cloud("/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/positioning/images/ref/pcd1.pcd")
-    pcd2 = o3d.io.read_point_cloud("/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/positioning/images/ref/pcd2.pcd")
+    pcd1 = o3d.io.read_point_cloud("/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/src/positioning/images/ref/pcd1.pcd")
+    pcd2 = o3d.io.read_point_cloud("/Volumes/Data drive/Documents/Doctoraat Local/PythonDataAlignment/src/positioning/images/ref/pcd2.pcd")
 
     print("Downsampling Pointclouds")
     voxelSize = 0.1
@@ -243,6 +269,7 @@ def test3D():
     result_fast = execute_fast_global_registration(voxel_pcd2, voxel_pcd1,fpfh_pcd2, fpfh_pcd1,voxelSize * 5)
     #draw_registration_result(voxel_pcd1, voxel_pcd2, result_fast.transformation)
     moved_pcd = voxel_pcd2.transform(result_fast.transformation)
+    
 
     #visualise
     voxel_pcd1.paint_uniform_color([1, 0.706, 0])
@@ -252,6 +279,8 @@ def test3D():
 #    pcd2.paint_uniform_color([1,0.5, 0.5])
 
     show_geometries([voxel_pcd1, voxel_pcd2, moved_pcd])
+
+test3D()
 
 
 

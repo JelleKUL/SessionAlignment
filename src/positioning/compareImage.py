@@ -69,6 +69,7 @@ def calculate_transformation_matrix(imTest: ImageTransform, imRef : ImageTransfo
     #find the fundamental matrix
     F, mask = cv2.findFundamentalMat(points1,points2,cv2.FM_LMEDS)
     E1, mask1 = cv2.findEssentialMat(points1,points2,imTestCam,cv2.FM_LMEDS)
+    
 
     # We select only inlier points
     pts1 = points1[mask.ravel()==1]
