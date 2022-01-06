@@ -24,6 +24,7 @@ class Session:
     meshIds = []
     geometries = []
     pcds = []
+    estimations = []
 
     def __init__(self, id = None, path= None, position= None, rotation= None, images= None, meshes= None):
         self.sessionId = id
@@ -106,6 +107,8 @@ class Session:
         "returns a global transformation matrix based on the original transform and the transformation to the new position"
         return transformation @ self.get_transformation_matrix()
         
+    def add_pose_guess(self, transformMatrix, confidence):
+        self.estimations.append([transformMatrix, confidence])
 
     def to_json():
         """converts this session object back to json"""
@@ -120,7 +123,7 @@ def sphere_intersection(center1, radius1, center2, radius2):
 
 def find_close_sessions(path: str, coordinates: np.array, maxDistance: float):
     """Finds all the close enough session from a given center point
-    returns: A list of Session objects tht are withing the range of the reference    
+    returns: A list of Session objects tht are within the range of the reference    
     """
     
     closeEnoughSessions = []

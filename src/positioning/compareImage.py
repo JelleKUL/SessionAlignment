@@ -7,174 +7,102 @@ from matplotlib import pyplot as plt
 MAX_FEATURES = 500
 MAX_MATCHES = 100
 
+class ImageMatch:
+    testImage = None
+    refImage = None
+    matches = []
+    testInliers = []
+    refInliers = []
+    matchScore = math.inf #lower is better
+    fundamentalMatrix = []
+    essentialMatrix = []
+
+    def __init__(self, testImage, refImage):
+        self.testImage = testImage
+        self.refImage = refImage
+    
+    def find_matches(self):
+        """Finds matches between 2 images"""
+
+        # Convert images to grayscale
+        im1Gray = cv2.cvtColor(cv2.imread(self.testImage.path), cv2.COLOR_BGR2GRAY)
+        im2Gray = cv2.cvtColor(cv2.imread(self.refImage.path), cv2.COLOR_BGR2GRAY)
+
+        # Detect ORB features and compute descriptors.
+        orb = cv2.ORB_create(MAX_FEATURES)
+        self.testImage.keypoints, self.testImage.descriptors = orb.detectAndCompute(im1Gray, None)
+        self.refImage.keypoints, self.refImage.descriptors = orb.detectAndCompute(im2Gray, None)
+
+        # Match features.
+        matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+        matches = matcher.match(self.testImage.descriptors, self.refImage.descriptors, None)
+
+        # Sort matches by score
+        matches = sorted(matches, key = lambda x:x.distance)
+        # only use the best features
+        if(len(matches) < MAX_MATCHES):
+            print("only found", len(matches), "good matches")
+            matchScore = math.inf
+        else:
+            matches = matches[:MAX_MATCHES]
+            # calculate the match score
+            # right now, it's just the average distances of the best points
+            matchScore = 0
+            for match in matches:
+                matchScore += match.distance
+            matchScore /= len(matches)
+
+        self.matches = matches
+        self.matchScore = matchScore
+        return matches
+
+    def calculate_transformation_matrix(self):
+        """Calculates the tranformation between 2 matched images"""
+        
+        #Calculate the camera matrices
+        imTestCam = self.testImage.get_camera_matrix()
+        imRefCam = self.refImage.get_camera_matrix()
+
+        # Extract location of good matches
+        pointsTest = np.zeros((len(self.matches), 2), dtype=np.float32)
+        pointsRef = np.zeros((len(self.matches), 2), dtype=np.float32)
+
+        for i, match in enumerate(self.matches):
+            pointsTest[i, :] = self.testImage.keypoints[match.queryIdx].pt
+            pointsRef[i, :] = self.refImage.keypoints[match.trainIdx].pt
+
+        #find the fundamental & essential matrix
+        F, mask = cv2.findFundamentalMat(pointsTest,pointsRef,cv2.FM_LMEDS)
+        E = imTestCam.T @ F @ imRefCam
+        #E, mask = cv2.findEssentialMat(pointsTest,pointsRef,imTestCam,cv2.FM_LMEDS)
+        #TODO figure this out
+
+        # We select only inlier points
+        self.testInliers = pointsTest[mask.ravel()==1]
+        self.refInliers = pointsRef[mask.ravel()==1]
+
+        self.fundamentalMatrix = F
+        self.essentialMatrix = E
+        return E
+
+    def draw_image_matches(self):
+        """Draws the matches on the 2 images"""
+        imMatches = cv2.drawMatches(self.testImage.get_cv2_image(),self.testImage.keypoints,
+                                    self.refImage.get_cv2_image(),self.refImage.keypoints,
+                                    self.matches,None, flags=2)
+        return imMatches
+
+
 def compare_image(imTest : ImageTransform,imRef: ImageTransform):
-    """Compares 2 images and returns the transformation and likelyhood of being a good match"""
+    """Compares 2 images and returns a match object containing the transformation and likelyhood of being a good match"""
     
-    [matchScore, matches, keypoints1, keypoints2] = find_matches(imTest, imRef)
+    match = ImageMatch(imTest, imRef)
+    match.find_matches()
     print("found matches")
-    E, E1,F, pts1,pts2, imMatches = calculate_transformation_matrix(imTest, imRef, matches, keypoints1,keypoints2)
+    match.calculate_transformation_matrix()
     print("got matrix")
-    return matchScore, E, imMatches
+    return match
    
-
-def find_matches(imTest : ImageTransform, imRef : ImageTransform):
-    """Finds matches between 2 images"""
-
-    # Convert images to grayscale
-    im1Gray = cv2.cvtColor(cv2.imread(imTest.path), cv2.COLOR_BGR2GRAY)
-    im2Gray = cv2.cvtColor(cv2.imread(imRef.path), cv2.COLOR_BGR2GRAY)
-
-    # Detect ORB features and compute descriptors.
-    orb = cv2.ORB_create(MAX_FEATURES)
-    keypoints1, descriptors1 = orb.detectAndCompute(im1Gray, None)
-    keypoints2, descriptors2 = orb.detectAndCompute(im2Gray, None)
-
-    # Match features.
-    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    matches = matcher.match(descriptors1, descriptors2, None)
-
-    # Sort matches by score
-    matches = sorted(matches, key = lambda x:x.distance)
-    # only use the best features
-    if(len(matches) < MAX_MATCHES):
-        print("only found", len(matches), "good matches")
-        matchScore = math.inf
-    else:
-        matches = matches[:MAX_MATCHES]
-        # calculate the match score
-        # right now, it's just the average distances of the best points
-        matchScore = 0
-        for match in matches:
-            matchScore += match.distance
-        matchScore /= len(matches)
-
-    return matchScore, matches, keypoints1, keypoints2
-
-
-def calculate_transformation_matrix(imTest: ImageTransform, imRef : ImageTransform, matches, keypoints1, keypoints2):
-    """Calculates the tranformation between 2 matched images"""
-    
-    #Calculate the camera matrices
-    imTestCam = imTest.get_camera_matrix()
-    imRefCam = imRef.get_camera_matrix()
-
-    # Extract location of good matches
-    points1 = np.zeros((len(matches), 2), dtype=np.float32)
-    points2 = np.zeros((len(matches), 2), dtype=np.float32)
-
-    for i, match in enumerate(matches):
-        points1[i, :] = keypoints1[match.queryIdx].pt
-        points2[i, :] = keypoints2[match.trainIdx].pt
-
-    #find the fundamental matrix
-    F, mask = cv2.findFundamentalMat(points1,points2,cv2.FM_LMEDS)
-    E1, mask1 = cv2.findEssentialMat(points1,points2,imTestCam,cv2.FM_LMEDS)
-    
-
-    # We select only inlier points
-    pts1 = points1[mask.ravel()==1]
-    pts2 = points2[mask.ravel()==1]
-
-    draw_params = dict(matchColor = (0,255,0), # draw matches in green color
-                singlePointColor = None,
-                matchesMask = mask, # draw only inliers
-                flags = 2)
-    imMatches = cv2.drawMatches(imTest.get_cv2_image(),keypoints1,imRef.get_cv2_image(),keypoints2,matches,None, flags=2)
-
-    E = imTestCam.T @ F @ imRefCam
-
-    return E, E1,F, pts1,pts2, imMatches
-
-def draw_matches(im1, keypoints1, im2, keypoints2, matches, imRef, imTest):
-    """Generates a new image with all the matches displayed"""
-
-    # Draw top matches
-    imMatches = cv2.drawMatches(im1, keypoints1, im2, keypoints2, matches, None)
-    cv2.imwrite("matches.jpg", imMatches)
-
-    # Extract location of good matches
-    points1 = np.zeros((len(matches), 2), dtype=np.float32)
-    points2 = np.zeros((len(matches), 2), dtype=np.float32)
-
-    for i, match in enumerate(matches):
-        points1[i, :] = keypoints1[match.queryIdx].pt
-        points2[i, :] = keypoints2[match.trainIdx].pt
-
-    # Find homography
-    h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
-
-    # Use homography
-    height, width, channels = imRef.shape
-    im1Reg = cv2.warpPerspective(imTest, h, (width, height))
-
-def match_bfm_orb(imTest : ImageTransform, imRef : ImageTransform):
-    # Convert images to grayscale
-    im1Gray = (cv2.imread(imTest.path))
-    im2Gray = (cv2.imread(imRef.path))
-
-    # Detect ORB features and compute descriptors.
-    orb = cv2.ORB_create(MAX_FEATURES)
-    kp1, descriptors1 = orb.detectAndCompute(im1Gray, None)
-    kp2, descriptors2 = orb.detectAndCompute(im2Gray, None)
-
-    # Match features.
-    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    matches = matcher.match(descriptors1, descriptors2, None)
-    print("Matches:", matches)
-    # Sort matches by score
-    matches = sorted(matches, key = lambda x:x.distance)
-
-    # only use the best features
-    if(len(matches) < MAX_MATCHES):
-        print("only found", len(matches), "good matches")
-        matchScore = math.inf
-    else:
-        matches = matches[:MAX_MATCHES]
-        # calculate the match score
-        #the average distances of the best points
-        matchScore = 0
-        for match in matches:
-            matchScore += match.distance
-        matchScore /= len(matches)
-
-    return matchScore, matches, kp1, kp2
-
-def match_bfm_sift(imTest : ImageTransform, imRef : ImageTransform):
-    # Convert images to grayscale
-    im1Gray = cv2.cvtColor(cv2.imread(imTest.path), cv2.COLOR_BGR2GRAY)
-    im2Gray = cv2.cvtColor(cv2.imread(imRef.path), cv2.COLOR_BGR2GRAY)
-
-    # Initiate SIFT detector
-    sift = cv2.SIFT()
-
-    # find the keypoints and descriptors with SIFT
-    kp1, des1 = sift.detectAndCompute(im1Gray,None)
-    kp2, des2 = sift.detectAndCompute(im2Gray,None)
-
-    # BFMatcher with default params
-    bf = cv2.BFMatcher()
-    matches = bf.knnMatch(des1,des2, k=2)
-
-    # Apply ratio test
-    good = []
-    for m,n in matches:
-        if m.distance < 0.75*n.distance:
-            good.append([m])
-    matches = good
-    # only use the best features
-    if(len(matches) < MAX_MATCHES):
-        print("only found", len(matches), "good matches")
-        matchScore = math.inf
-    else:
-        matches = matches[:MAX_MATCHES]
-        # calculate the match score
-        #the average distances of the best points
-        matchScore = 0
-        for match in matches:
-            matchScore += match.distance
-        matchScore /= len(matches)
-
-    return matchScore, matches, kp1, kp2
 
 def draw_epilines(img1,img2,pts1,pts2,F):
     # Find epilines corresponding to points in right image (second image) and
