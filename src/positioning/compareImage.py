@@ -73,7 +73,7 @@ class ImageMatch:
 
         #find the fundamental & essential matrix
         F, mask = cv2.findFundamentalMat(pointsTest,pointsRef,cv2.FM_LMEDS)
-        E = imTestCam.T @ F @ imRefCam
+        E = imRefCam.T @ F @ imTestCam
         #E, mask = cv2.findEssentialMat(pointsTest,pointsRef,imTestCam,cv2.FM_LMEDS)
         #TODO figure this out
 
@@ -91,6 +91,13 @@ class ImageMatch:
                                     self.refImage.get_cv2_image(),self.refImage.keypoints,
                                     self.matches,None, flags=2)
         return imMatches
+
+    def get_keypoints_from_indices(self):
+        """Filters a list of keypoints based on the indices given"""
+
+        points1 = np.array([kp.pt for kp in self.testImage.keypoints])[self.testInliers]
+        points2 = np.array([kp.pt for kp in self.refImage.keypoints])[self.refInliers]
+        return points1, points2
 
 
 def compare_image(imTest : ImageTransform,imRef: ImageTransform):

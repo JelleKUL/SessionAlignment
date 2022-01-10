@@ -167,6 +167,8 @@ def create_3d_camera(pos = [0,0,0], rotation = [1,0,0,0], scale = 1.0):
     box.translate(pos)
     return box
 
+
+
 def convert_to_open3d(pos : np.array, rot : np.array):
     "converts the stored coordinates in (right, up, forward) to the open3D standard (left, up, forward)"
     newPos = np.multiply(pos ,np.array([-1,1,1]))
@@ -279,8 +281,6 @@ def test3D():
 #    pcd2.paint_uniform_color([1,0.5, 0.5])
 
     show_geometries([voxel_pcd1, voxel_pcd2, moved_pcd])
-
-test3D()
 
 
 

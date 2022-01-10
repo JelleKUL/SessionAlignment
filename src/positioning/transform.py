@@ -2,6 +2,7 @@
 
 import math
 import os
+import open3d as o3d
 
 import cv2
 import numpy as np
@@ -56,6 +57,18 @@ class ImageTransform:
             f_y = imageSize[1] / math.tan(math.radians(a_y) / 2)
             this.cameraMatrix = np.array([[f_x, 0, imageSize[0]], [0, f_y, imageSize[1]],[0,0,1]])
         return this.cameraMatrix
+
+    def get_projection_matrix(this):
+        return np.hstack((quaternion.as_rotation_matrix(this.rot), np.array([this.pos]).T))
+
+    def get_camera_geometry(this, scale = 1):
+        "Returns a geometry lineset object that represents a camera in 3D space"
+        box = o3d.geometry.TriangleMesh.create_box(1.6,0.9, 0.1)
+        box.translate((-0.8, -0.45, -0.05))
+        box.scale(scale, center=(0, 0, 0))
+        box.rotate(box.get_rotation_matrix_from_quaternion(quaternion.as_float_array(this.rot)))
+        box.translate(this.pos)
+        return box
 
 
 def dict_to_quaternion(dict):
