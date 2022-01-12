@@ -15,6 +15,7 @@ class ImageTransform:
     id = ""
     pos = (0,0,0)
     rot = (0,0,0,0)
+    transformationMatrix = []
     fov = 0
     path = "" # the path of the image
     cameraMatrix = None
@@ -59,7 +60,7 @@ class ImageTransform:
         return this.cameraMatrix
 
     def get_projection_matrix(this):
-        return np.hstack((quaternion.as_rotation_matrix(this.rot), np.array([this.pos]).T))
+        return this.get_camera_matrix() @ np.hstack((quaternion.as_rotation_matrix(this.rot), np.array([this.pos]).T))
 
     def get_camera_geometry(this, scale = 1):
         "Returns a geometry lineset object that represents a camera in 3D space"
@@ -133,7 +134,7 @@ def triangulate_session(image1: ImageTransform, image2: ImageTransform, transMat
 
 def get_position(scaleFactor, imageTransform: ImageTransform, translation : np.array):
     """Returns the translation in function of a scale factor"""
-    newPosition = imageTransform.pos + scaleFactor * (quaternion.as_rotation_matrix(imageTransform.rot) @ translation.T).T
+    newPosition = imageTransform.pos + scaleFactor * (quaternion.as_rotation_matrix(imageTransform.rot) @ translation).T
     return newPosition
 
 # helper functions (source https://github.com/harish-vnkt/structure-from-motion)
@@ -149,7 +150,7 @@ def check_pose(E):
 def get_translation(E):
     R1, R2, t1, t2 = get_camera_from_E(E)
 
-    return t1, R1
+    return t1.T, R1
 
 def get_camera_from_E(E):
     """Calculates rotation and translation component from essential matrix"""
@@ -160,7 +161,7 @@ def get_camera_from_E(E):
 
     R1 = u @ W @ vt
     R2 = u @ W_t @ vt
-    t1 = u[:, -1].reshape((1, 3))
+    t1 = u[:, -1].reshape((3,1))
     t2 = - t1
     return R1, R2, t1, t2
 
@@ -168,6 +169,17 @@ def check_determinant(R):
     """Validates using the determinant of the rotation matrix"""
 
     if np.linalg.det(R) + 1.0 < 1e-9:
+        return False
+    else:
+        return True
+
+def check_triangulation(points, P):
+    """Checks whether reconstructed points lie in front of the camera"""
+
+    P = np.vstack((P, np.array([0, 0, 0, 1])))
+    reprojected_points = cv2.perspectiveTransform(src=points[np.newaxis], m=P)
+    z = reprojected_points[0, :, -1]
+    if (np.sum(z > 0)/z.shape[0]) < 0.75:
         return False
     else:
         return True

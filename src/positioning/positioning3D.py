@@ -158,12 +158,13 @@ def get_bounding_radius(geometry : o3d.geometry):
         maxDist = max(maxDist, np.linalg.norm(point))
     return maxDist
 
-def create_3d_camera(pos = [0,0,0], rotation = [1,0,0,0], scale = 1.0):
+def create_3d_camera(pos = [0,0,0], rotation  = np.eye(3), scale = 1.0):
     "Returns a geometry lineset object that represents a camera in 3D space"
     box = o3d.geometry.TriangleMesh.create_box(1.6,0.9, 0.1)
     box.translate((-0.8, -0.45, -0.05))
     box.scale(scale, center=(0, 0, 0))
-    box.rotate(box.get_rotation_matrix_from_quaternion(rotation))
+    #box.translate(pos)
+    box.rotate(rotation)
     box.translate(pos)
     return box
 

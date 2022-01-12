@@ -1,11 +1,12 @@
 import math
 import cv2
 import numpy as np
+import transform
 from transform import ImageTransform
 from matplotlib import pyplot as plt
 
-MAX_FEATURES = 500
-MAX_MATCHES = 100
+MAX_FEATURES = 10000
+MAX_MATCHES = 2000
 
 class ImageMatch:
     testImage = None
@@ -17,6 +18,7 @@ class ImageMatch:
     matchScore = math.inf #lower is better
     fundamentalMatrix = []
     essentialMatrix = []
+    
 
     def __init__(self, testImage, refImage):
         self.testImage = testImage
@@ -112,6 +114,21 @@ class ImageMatch:
         points1 = np.array([kp.pt for kp in self.testImage.keypoints])[self.testInliers]
         points2 = np.array([kp.pt for kp in self.refImage.keypoints])[self.refInliers]
         return points1, points2
+
+    def get_projectionMatrices(self):
+        """Returns 2 projection matrices, assuming the First camera is at the origin"""
+        cam1 = self.testImage.get_camera_matrix() @ np.hstack((np.eye(3), np.zeros((3,1))))
+
+        R1, R2, t1, t2 = transform.check_pose(self.essentialMatrix)
+        mat1 = np.hstack((R1, t1))
+        mat2 = np.hstack((R1, t2))   
+        mat3 = np.hstack((R2, t1))
+        mat4 = np.hstack((R2, t2))
+        cam2_1 = self.refImage.get_camera_matrix() @ mat1
+        cam2_2 = self.refImage.get_camera_matrix() @ mat2
+        cam2_3 = self.refImage.get_camera_matrix() @ mat3
+        cam2_4 = self.refImage.get_camera_matrix() @ mat4
+        return cam1, cam2_1, cam2_2, cam2_3, cam2_4
 
 
 def compare_image(imTest : ImageTransform,imRef: ImageTransform):
