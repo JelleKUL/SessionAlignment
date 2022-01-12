@@ -13,3 +13,8 @@ MATCHES_3D = 1
 ERROR_3D = 1
 
 TOTAL_3D = MATCHES_3D + ERROR_3D
+
+#Session parameters
+
+SENSOR_TYPE = 1
+SESSION_DATE = 1

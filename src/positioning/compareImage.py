@@ -11,6 +11,7 @@ class ImageMatch:
     testImage = None
     refImage = None
     matches = []
+    mask = []
     testInliers = []
     refInliers = []
     matchScore = math.inf #lower is better
@@ -72,7 +73,7 @@ class ImageMatch:
             pointsRef[i, :] = self.refImage.keypoints[match.trainIdx].pt
 
         #find the fundamental & essential matrix
-        F, mask = cv2.findFundamentalMat(pointsTest,pointsRef,cv2.FM_LMEDS)
+        F, mask = cv2.findFundamentalMat(pointsTest,pointsRef,cv2.RANSAC)
         E = imRefCam.T @ F @ imTestCam
         #E, mask = cv2.findEssentialMat(pointsTest,pointsRef,imTestCam,cv2.FM_LMEDS)
         #TODO figure this out
@@ -81,15 +82,28 @@ class ImageMatch:
         self.testInliers = pointsTest[mask.ravel()==1]
         self.refInliers = pointsRef[mask.ravel()==1]
 
+        self.mask = mask
         self.fundamentalMatrix = F
         self.essentialMatrix = E
         return E
+            
 
     def draw_image_matches(self):
         """Draws the matches on the 2 images"""
         imMatches = cv2.drawMatches(self.testImage.get_cv2_image(),self.testImage.keypoints,
                                     self.refImage.get_cv2_image(),self.refImage.keypoints,
                                     self.matches,None, flags=2)
+        return imMatches
+    def draw_image_inliers(self):
+        """Draws the matches on the 2 images"""
+        matchesMask = self.mask.ravel().tolist()
+        draw_params = dict(matchColor = (0,255,0), # draw matches in green color
+                   singlePointColor = None,
+                   matchesMask = matchesMask, # draw only inliers
+                   flags = 2)
+        imMatches = cv2.drawMatches(self.testImage.get_cv2_image(),self.testImage.keypoints,
+                                    self.refImage.get_cv2_image(),self.refImage.keypoints,
+                                    self.matches,None, **draw_params)
         return imMatches
 
     def get_keypoints_from_indices(self):
