@@ -40,6 +40,14 @@ class ImageTransform:
         self.path = os.path.join(path, (self.id + IMG_EXTENSION))
         return self
 
+    def set_transformation_matrix(self, pos, rot):
+        transformationMatrix = np.array(rot)
+        transformationMatrix = np.reshape(transformationMatrix, (3,3))
+        self.transformationMatrix = np.hstack((transformationMatrix, np.array([pos]).T))
+        self.pos = np.array(pos)
+        self.rot = quaternion.from_rotation_matrix(np.reshape(rot, (3,3)))
+        return self.transformationMatrix
+
     def get_cv2_image(this):
         """ Returns the Image in color as a cv2/numpy array"""
         if(this.image is None):
@@ -61,6 +69,9 @@ class ImageTransform:
 
     def get_projection_matrix(this):
         return this.get_camera_matrix() @ np.hstack((quaternion.as_rotation_matrix(this.rot), np.array([this.pos]).T))
+
+    def get_rotation_matrix(self):
+        return quaternion.as_rotation_matrix(self.rot)
 
     def get_camera_geometry(this, scale = 1):
         "Returns a geometry lineset object that represents a camera in 3D space"
