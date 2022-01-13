@@ -54,6 +54,14 @@ class ImageTransform:
             this.image = cv2.imread(this.path,cv2.IMREAD_COLOR)
         return this.image
 
+    def get_cv2_features(self, max = 100):
+
+        if(self.keypoints is None and self.descriptors is None):
+            im1Gray = cv2.cvtColor(cv2.imread(self.path), cv2.COLOR_BGR2GRAY)
+            orb = cv2.ORB_create(max)
+            self.keypoints, self.descriptors = orb.detectAndCompute(im1Gray, None)
+        return self.keypoints, self.descriptors
+
     def get_camera_matrix(this):
         """Calculate the Camera matrix with the vertical fov"""
 
