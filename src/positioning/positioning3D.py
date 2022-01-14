@@ -168,13 +168,6 @@ def create_3d_camera(pos = [0,0,0], rotation  = np.eye(3), scale = 1.0):
     box.translate(pos)
     return box
 
-
-
-def convert_to_open3d(pos : np.array, rot : np.array):
-    "converts the stored coordinates in (right, up, forward) to the open3D standard (left, up, forward)"
-    newPos = np.multiply(pos ,np.array([-1,1,1]))
-    newRot = np.multiply(rot ,np.array([-1,-1,1,1]))
-
 def show_geometries(geometries, color = False):
     "displays the array of meshes in a 3D view"
 

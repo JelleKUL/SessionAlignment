@@ -19,8 +19,8 @@ class ImageTransform:
     fov = 0
     path = "" # the path of the image
     cameraMatrix = None
-    keypoints = []
-    descriptors = []
+    keypoints = None
+    descriptors = None
     image = None
 
     def __init__(self, id = None, pos= None, rot= None, fov= None, path= None):
@@ -34,8 +34,9 @@ class ImageTransform:
     def from_dict(self, dict, path):
         """the input path is the location of the folder"""
         self.id = dict["id"]
-        self.pos = dict_to_np_vector3(dict["pos"])
-        self.rot = dict_to_quaternion(dict["rot"])
+        self.pos, self.rot = convert_to_open3d(dict_to_np_vector3(dict["pos"]), dict_to_quaternion(dict["rot"]))
+        #self.pos = dict_to_np_vector3(dict["pos"])
+        #self.rot = dict_to_quaternion(dict["rot"])
         self.fov = dict["fov"]
         self.path = os.path.join(path, (self.id + IMG_EXTENSION))
         return self
@@ -56,7 +57,7 @@ class ImageTransform:
 
     def get_cv2_features(self, max = 100):
 
-        if(self.keypoints is None and self.descriptors is None):
+        if(self.keypoints is None or self.descriptors is None):
             im1Gray = cv2.cvtColor(cv2.imread(self.path), cv2.COLOR_BGR2GRAY)
             orb = cv2.ORB_create(max)
             self.keypoints, self.descriptors = orb.detectAndCompute(im1Gray, None)
@@ -202,3 +203,9 @@ def check_triangulation(points, P):
         return False
     else:
         return True
+
+def convert_to_open3d(pos : np.array, rot : np.array):
+    "converts the stored coordinates in (right, up, forward) to the open3D standard (right, down, forward)"
+    newPos = pos * np.array([1,-1,1])
+    newRot = quaternion.from_float_array(quaternion.as_float_array(rot) * np.array([-1,1,-1,1]))
+    return newPos, newRot

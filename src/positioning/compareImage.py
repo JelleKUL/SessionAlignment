@@ -5,8 +5,8 @@ import transform
 from transform import ImageTransform
 from matplotlib import pyplot as plt
 
-MAX_FEATURES = 10000
-MAX_MATCHES = 2000
+MAX_FEATURES = 20000
+MAX_MATCHES = 1000
 
 class ImageMatch:
     testImage = None
@@ -16,12 +16,13 @@ class ImageMatch:
     testInliers = []
     refInliers = []
     points3d = []
+    pointMap = []
     matchScore = math.inf #lower is better
     fundamentalMatrix = []
     essentialMatrix = []
     rotationMatrix = []
     translation = []
-    
+    fidelity = 0
 
     def __init__(self, testImage, refImage):
         self.testImage = testImage
@@ -132,8 +133,8 @@ class ImageMatch:
             testPos = np.zeros((3,1))
             testRot = np.eye(3)
 
-        #print("rotation:\n", testRot)
-        #print("translation:\n", testPos, "Shape:", testPos.shape)
+        print("rotation:\n", testRot)
+        print("translation:\n", testPos, "Shape:", testPos.shape)
         cam1 = self.testImage.get_camera_matrix() @ np.hstack((testRot, testPos))
         cam2 = self.refImage.get_camera_matrix() @ np.hstack((self.rotationMatrix @ testRot, self.translation + testPos))
 
@@ -170,27 +171,31 @@ class ImageMatch:
         
         # match old descriptors against the descriptors in the new view
         matches = self.find_matches()
-        points_3D, points_2D = np.zeros((0, 3)), np.zeros((0, 2))
+        points_3D = []
+        points_2D = []
 
         # build corresponding array of 2D points and 3D points
         for match in matches:
             old_image_idx, new_image_kp_idx, old_image_kp_idx = match.imgIdx, match.queryIdx, match.trainIdx
-
+            j = 0
             for i, oldmatch in enumerate(OtherMatch.matches):
-                if(oldmatch.queryIdx == match.trainIdx):
-                    if(OtherMatch.mask[i]):
+                if(OtherMatch.mask[i] == 1): #the match has a 3d point
+                    if(oldmatch.queryIdx == match.trainIdx):
+                    
                         #the index of the old reference image match is also in the new test image
-
+                        
                         # obtain the 2D point from match
                         point_2D = np.array(self.refImage.keypoints[new_image_kp_idx].pt).T.reshape((1, 2))
-                        points_2D = np.concatenate((points_2D, point_2D), axis=0)
+                        points_2D.append(point_2D)
 
                         # obtain the 3D point from the point_map
-                        point_3D = OtherMatch.points3d[i]
-                        points_3D = np.concatenate((points_3D, point_3D), axis=0)
+                        point_3D = OtherMatch.points3d[j]
+                        points_3D.append(point_3D)
+                        print("point",j,":\n2D:",point_2D, "\n3D:",point_3D)
+                    j+=1
 
         # compute new pose using solvePnPRansac
-        _, R, t, _ = cv2.solvePnPRansac(points_3D[:, np.newaxis], points_2D[:, np.newaxis], self.refImage.get_camera_matrix(), None,
+        _, R, t, _ = cv2.solvePnPRansac(np.array(points_3D), np.array(points_2D), self.refImage.get_camera_matrix(), None,
                                         confidence=0.99, reprojectionError=8.0, flags=cv2.SOLVEPNP_DLS)
         R, _ = cv2.Rodrigues(R)
         return R, t
