@@ -8,7 +8,7 @@ python -m pip install git+https://github.com/JelleKUL/PythonDataAlignment.git
 ```
 
 ## Main Use
-The main goal of this package is to align the XR device and it's recorded to reference data like point clouds or BIM models.
+Use xr data like images or real time meshes to align the device with pre existing geo-localized reference data
 
 ## workflow
 1. Gather all the data (read the files and convert them to session objects)

@@ -1,32 +1,36 @@
 """Classes and Functions to read and manage SessionData"""
 
-import os
 import json
+import os
 from math import sqrt
-import open3d as o3d
 
 import numpy as np
+import open3d as o3d
 import quaternion
-import transform
+
+import utils
+from imagetransform import ImageTransform
 
 JSON_ID = "SessionData.json"
-IMG_EXTENSION = ".jpg"
+IMG_EXTENSION = [".jpg", ".png"]
 MESH_EXTENSION = [".obj",".fbx" ]
 PCD_EXTENSION = [".pcd", ".pts", ".ply"]
 
 class Session:
-    sessionId = ""
-    dirPath = ""
-    globalPosition = [0,0,0]
-    globalRotation = [0,0,0,0]
-    boundingBox = [[0,0,0],[0,0,0]] #3x2 matrix from min x to max z
-    imageTransforms = []
-    meshIds = []
-    geometries = []
-    pcds = []
-    estimations = []
+    """This class stores a full session, including all the images and meshes"""
+
+    sessionId = ""                  # the id/name of the session
+    dirPath = ""                    # the system path of session directory
+    globalPosition = [0,0,0]        # the global position of the session origin
+    globalRotation = [0,0,0,0]      # the global rotation as a quaternion
+    boundingBox = [[0,0,0],[0,0,0]] # 3x2 matrix from min x to max z of all the elements in the session
+    imageTransforms = []            # a list of all the image transforms
+    geometries = []                 # a list of the open3d geometries (meshes/pcd's together)
+    estimations = []                # a list of the estimated guasses including their confidence
 
     def __init__(self, id = None, path= None, position= None, rotation= None, images= None, meshes= None):
+        """Initialise the session"""
+
         self.sessionId = id
         self.dirPath = path
         self.globalPosition = position
@@ -36,52 +40,44 @@ class Session:
         pass
 
     def from_dict(self, dict, path):
+        """Create a session directly drom a dictionary containing all the data"""
+
         self.sessionId = dict["sessionId"]
         self.dirPath = path
-        self.globalPosition = transform.dict_to_np_vector3(dict["globalPosition"])
-        self.globalRotation = transform.dict_to_quaternion(dict["globalRotation"])
-        self.imageTransforms = []
-        for data in enumerate(dict["imageTransforms"]):
-            newTransform = transform.ImageTransform().from_dict(data[1], path)
-            self.imageTransforms.append(newTransform)
-        self.meshIds = dict["meshIds"]
-        self.geometries = self.get_geometries()
+        self.globalPosition = utils.dict_to_np_vector3(dict["globalPosition"])
+        self.globalRotation = utils.dict_to_quaternion(dict["globalRotation"])
+        self.imageTransforms = self.get_images(dict["imageTransforms"])
+        self.geometries = self.get_geometries(dict["meshIds"])
         return self
 
     def from_path(self, path):
         """Create a session using the directory file path"""
+
         sessionFile = open(os.path.join(path, JSON_ID),)
         sessionData = json.load(sessionFile)
         self.from_dict(sessionData,path)
         return self
 
-    def get_bounding_box(self):
-        """returns a 2x3 numpy matrix containing the min and max values of the sessionData"""
-        self.boundingBox = np.concatenate((self.imageTransforms[0].pos, self.imageTransforms[0].pos),axis=0).reshape(2,3)
-        for trans in self.imageTransforms:
-            print(trans.pos)
-            self.boundingBox = np.concatenate((np.minimum(trans.pos, self.boundingBox[0]), np.maximum(trans.pos, self.boundingBox[1])),axis=0).reshape(2,3)
-        return self.boundingBox
+    def get_images(self, imageIds):
+        " returns all the imageTransforms in the session"
+
+        self.imageTransforms = []
+        for file in os.listdir(self.dirPath):
+            for image in imageIds:
+                if file.find(image["id"]) != -1:
+                    #a 2D format file is found, now check if it's a pcd or mesh
+                    if file.endswith(tuple(IMG_EXTENSION)):
+                        newImg = ImageTransform().from_dict(image, os.path.join(self.dirPath, file))
+                        self.imageTransforms.append(newImg)
+        return self.imageTransforms
     
-    def get_bounding_radius(self):
-        """Returns a radius from the center points where all the points are in"""
-        radius = 0
-        for trans in self.imageTransforms:
-            distance = np.linalg.norm(trans.pos)
-            radius = max(radius, distance)
-        return radius
+    def get_geometries(self, meshIds):
+        "returns a list of all the geometries in the session"
 
-    def set_global_pos_rot(self,pos, rot):
-        self.globalPosition = pos
-        self.globalRotation = rot
-
-    def get_geometries(self):
-        "returns a list of all the geometries that are linked to this session"
         self.geometries = []
         for file in os.listdir(self.dirPath):
-            for id in self.meshIds:
-                if file.find(id) != -1:
-                    #print("found file with a meshID", id)
+            for geometry in meshIds:
+                if file.find(geometry) != -1:
                     #a 3D format file is found, now check if it's a pcd or mesh
                     if file.endswith(tuple(MESH_EXTENSION)):
                         newMesh = o3d.io.read_triangle_mesh(os.path.join(self.dirPath, file))
@@ -93,29 +89,58 @@ class Session:
                         self.geometries.append(newPcd)
         return self.geometries
 
+    def get_bounding_box(self):
+        """returns a 2x3 numpy matrix containing the min and max values of the sessionData"""
+
+        self.boundingBox = np.concatenate((self.imageTransforms[0].pos, self.imageTransforms[0].pos),axis=0).reshape(2,3)
+        for trans in self.imageTransforms:
+            print(trans.pos)
+            self.boundingBox = np.concatenate((np.minimum(trans.pos, self.boundingBox[0]), np.maximum(trans.pos, self.boundingBox[1])),axis=0).reshape(2,3)
+        return self.boundingBox
+    
+    def get_bounding_radius(self):
+        """Returns a radius from the center points where all the points are in"""
+
+        radius = 0
+        for trans in self.imageTransforms:
+            distance = np.linalg.norm(trans.pos)
+            radius = max(radius, distance)
+        return radius
 
     def get_transformation_matrix(self):
         "returns the transformationmatrix of the session"
+
         matrix = quaternion.as_rotation_matrix(self.globalRotation)
         matrix = np.concatenate((matrix,self.globalPosition.T), axis = 1)
         matrix = np.concatenate((matrix, np.array([0,0,0,1])), axis = 0)
-
         return matrix
 
-    
     def get_new_global_transformation_matrix(self, transformation):
         "returns a global transformation matrix based on the original transform and the transformation to the new position"
+
         return transformation @ self.get_transformation_matrix()
         
     def add_pose_guess(self, transformMatrix, confidence):
+        """Add a pose guess to the session"""
+
         self.estimations.append([transformMatrix, confidence])
+
+    def set_global_pos_rot(self,pos, rot):
+        """Set the glbal position and rotation of the sesison"""
+
+        self.globalPosition = pos
+        self.globalRotation = rot
 
     def to_json():
         """converts this session object back to json"""
+
         print("converting to json is not yet implemented")
+        return None
+
 
 def sphere_intersection(center1, radius1, center2, radius2):
     """returns true if the 2 spheres are intersecting"""
+
     centerDistance = sqrt(pow(center1[0] + center2[0], 2) + pow(center1[1] + center2[1], 2) + pow(center1[2] + center2[2], 2))
     print("centerDistance = " + str(centerDistance))
     return centerDistance < (radius1 + radius2)
@@ -127,7 +152,6 @@ def find_close_sessions(path: str, coordinates: np.array, maxDistance: float):
     """
     
     closeEnoughSessions = []
-
     for root, dir, files in os.walk(path, topdown=False):
         for name in files:
             if(name.endswith(JSON_ID)):
