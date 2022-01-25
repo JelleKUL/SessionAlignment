@@ -8,15 +8,19 @@ import numpy as np
 import open3d as o3d
 import quaternion
 
+from rdfobject import RdfObject
+
 import utils
 from imagetransform import ImageTransform
+
+from rdfpointcloud import RdfPointCloud
 
 JSON_ID = "SessionData.json"
 IMG_EXTENSION = [".jpg", ".png"]
 MESH_EXTENSION = [".obj",".fbx" ]
 PCD_EXTENSION = [".pcd", ".pts", ".ply"]
 
-class Session:
+class Session(RdfObject):
     """This class stores a full session, including all the images and meshes"""
 
     sessionId = ""                  # the id/name of the session
@@ -27,6 +31,12 @@ class Session:
     imageTransforms = []            # a list of all the image transforms
     geometries = []                 # a list of the open3d geometries (meshes/pcd's together)
     estimations = []                # a list of the estimated guasses including their confidence
+    fidelity = 1
+    accuracy = []
+
+
+
+
 
     def __init__(self, id = None, path= None, position= None, rotation= None, images= None, meshes= None):
         """Initialise the session"""
@@ -115,15 +125,37 @@ class Session:
         matrix = np.concatenate((matrix, np.array([0,0,0,1])), axis = 0)
         return matrix
 
-    def get_new_global_transformation_matrix(self, transformation):
-        "returns a global transformation matrix based on the original transform and the transformation to the new position"
+    def get_rotation_matrix(self):
+        """Returns the 3x3 rotation matrix R """
 
-        return transformation @ self.get_transformation_matrix()
+        return quaternion.as_rotation_matrix(self.rot)
         
-    def add_pose_guess(self, transformMatrix, confidence):
+    def add_pose_guess(self, otherSession, R,t, confidence):
         """Add a pose guess to the session"""
 
-        self.estimations.append([transformMatrix, confidence])
+        globalRot = otherSession.get_rotation_matrix() @ R
+        globalPos = otherSession.globalPosition + otherSession.get_rotation_matrix() @ t
+
+        self.estimations.append([globalRot, globalPos, confidence * otherSession.fidelity])
+
+    def get_best_pose(self):
+        """Determines the best pose based on the confidence and clustering"""
+
+        rotations = []
+        positions = []
+        weights = []
+        for estimation in self.estimations:
+            rotations.append(quaternion.from_rotation_matrix(estimation[0]))
+            positions.append(estimation[1])
+            weights.append(estimation[2])
+        Q = np.array(rotations)
+        T = np.array(positions)
+        w = np.array(weights)/sum(weights)
+
+        averageRotation = utils.weighted_average_quaternions(Q,w)
+        averagePosition = np.average(T,axis = 0,weights = w)
+
+        return averageRotation, averagePosition
 
     def set_global_pos_rot(self,pos, rot):
         """Set the glbal position and rotation of the sesison"""

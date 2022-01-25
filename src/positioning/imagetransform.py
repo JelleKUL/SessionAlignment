@@ -22,6 +22,7 @@ class ImageTransform:
     keypoints = None            # the cv2 generated keypoints 
     descriptors = None          # the cv2 generated descriptors
     image = None                # the cv2_image
+    accuracy = []
 
     def __init__(self, id = None, pos= None, rot= None, fov= None, path= None):
         """the input path is the location of the folder"""

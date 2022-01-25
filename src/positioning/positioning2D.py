@@ -10,221 +10,176 @@ import cv2
 import numpy as np
 import quaternion
 from scipy import optimize
+import math
 
 from session import Session
 from imagetransform import ImageTransform
+from imagematch import ImageMatch
+import positioning3d as pos3d
 import utils
 
 
-def get_2D_transformation(testSession : Session, refSessions : "list[Session]", method: float):
-    """Returns the estimated Global transform offset in relation to the best reference session in the list
-    Params: 
-        method: 
+def get_2D_transformation(testSession : Session, refSessions : "list[Session]"):
+    """returns a list of possible poses along with their confidence
+        methods: 
             1: Cross referencing 2 refenrence images with one test sesison image
             2: Matching 2 reference images to retrieve 3D points, then pnp estimation of test image
             3: Matching 1 reference image from a session with 3D data, with a test image, getting the global pos by raycasting"""
-    bestSessionResults = []
+    
     #find the image with the best match rate
     for referenceSession in refSessions:
-        results = compare_session(testSession, referenceSession)
-        bestSessionResults.append(results)
+        compare_session(testSession, referenceSession)
 
-    # calculate the transformation based on the match rate
-
-    return bestSessionResults
-
+    return testSession.get_best_pose()
 
 def compare_session(testSession : Session, refSession : Session):
     """Checks a test session against a reference session, returns the 3 best matching images"""
-    results = [] # a list of all the results
-    bestResults = [] # a list of the 2 best results
-
-    nrCheck = 0
-    totalCheck = len(testSession.imageTransforms) * len(refSession.imageTransforms)
 
     print("Starting Comparing:", len(testSession.imageTransforms), "Against", len(refSession.imageTransforms), "Images")
 
     # loop over every test image in the session, find the 2 best referenc images and keep them
-    for testImageTransform  in testSession.imageTransforms:
+    for testImage  in testSession.imageTransforms:
+        guesses = []
+        if(len(refSession.imageTransforms) > 1): # we need 2 ref images to match
+            guesses.append(cross_reference_matching(testImage, refSession))
+            guesses.append(incremental_matching(testImage, refSession))
+        if(len(refSession.geometries) > 0): # we need a mesh to raycast against
+            guesses.append(raycast_matching(testImage, refSession))
 
-        testImageTransform.image = cv2.imread(testImageTransform.path,cv2.IMREAD_COLOR)
-        bestResults = []
-
-        for refImageTransform in refSession.imageTransforms:
-
-            refImageTransform.image = cv2.imread(refImageTransform.path,cv2.IMREAD_COLOR)
-
-            newResult = compare_image(testImageTransform, refImageTransform)
-            results.append(newResult)
-            #print(newResult.__dict__)
-
-            # check if the newResult is in the top2 of results
-            if(len(bestResults) < 2):
-                bestResults.append(newResult)
-            elif(newResult.matchScore > (min(bestResults[0].matchScore, bestResults[1].matchScore))):
-                #the matchscore is higher than atleast on of the other results
-                if(bestResults[0].matchScore > bestResults[1].matchScore):
-                    bestResults = [newResult, bestResults[0]]
-                else:
-                    bestResults = [newResult, bestResults[1]]
-
-            nrCheck +=1
-            print(str(nrCheck) + "/" + str(totalCheck) + " checks complete")
-
-        # once The 2 best results are determined, calculate the transformation
-
-    return bestResults
-
-def cross_reference_matching(testImage, refSession):
-    """Tries to find 2 seperate reference images that hav the best matches against a test Image"""
+        # once we get the image pose in reference session space, we determine the testSession pose in reference session space
+        for guess in guesses:
+            R = guess[0]
+            t = guess[1]
+            testOriginRot = testImage.get_rotation_matrix().T @ R
+            testOrgininPos = - testOriginRot @ t
+            testSession.add_pose_guess(refSession, testOriginRot, testOrgininPos, guess[2])
     
-    bestResults = get_best_matches(testImage, refSession.imageTransforms, 2)
-    
-    #determine the transformation based on the 2 best images
-    newPos, rot1, pos1,pos2, minimum2 = triangulate_session(
-        bestResults[0].refImage,bestResults[1].refImage, 
-        bestResults[0].essentialMatrix,bestResults[1].essentialMatrix)
+    return testSession.get_best_pose()
 
-    return newPos # the position of the test image transform in reference session space
 
-def incremental_matching(testImage, refSession):
-    """tries to determine the pose by first matching reference images to create the initial 3D points"""
-
-    #find the 3 highest linked matches
-    #find the best single match for 
-    bestResult = get_best_matches(testImage, refSession.imageTransforms)
-    #find the best result for the matched reference image
-    newList = refSession.imageTransforms.remove(bestResult.refImage)
-    bestRefResult = get_best_matches(bestResult.refImage, newList)
-    #Calculate the 3D points in the scene with the know real world locations of the 2 reference images
-    
-    cv2.triangulatePoints()
-    #TODO
 
 
 def get_best_matches(testImage, refImages, nr = 1):
+    """Check a test image against a list of reference images. Returns a list of the "nr" best matches"""
+
     results = [] # a list of all the results
     bestResults = [] # a list of the best results
     nrCheck = 0
     totalCheck = len(refImages)
 
     for refImage in refImages:
-            newResult = compare_image(testImage, refImage)
-            results.append(newResult)
+            newMatch = ImageMatch(refImage, testImage) #create a new match between 2 images
+            newMatch.find_matches() # find the best matches 
+            results.append(newMatch)
 
-            # check if the newResult is in the top2 of results
-            bestResults.append(newResult)
-            bestResults = sorted(bestResults, key= lambda x: x.matchScore)
-            if(len(bestResults) > nr):
+            # check if the newResult is in the top of results
+            bestResults.append(newMatch)
+            bestResults = sorted(bestResults, key= lambda x: x.matchError) #sort them from low to High
+            if(len(bestResults) > nr): #remove the worst match
                 bestResults = bestResults[:(nr-1)]
 
             nrCheck +=1
             print(str(nrCheck) + "/" + str(totalCheck) + " checks complete")
 
+    for result in bestResults:
+        result.get_essential_matrix() # determin the transformation and inliers
+
+    if(nr == 1): return bestResults[0]
     return bestResults
 
-def get_global_position_offset(testImageTransform: ImageTransform, refImageTransform: ImageTransform, refGlobalTransform: np.array, transformationMatrix: np.array):
-    testGlobalTransform = 0
 
-    # Put the refImage in global coordinate system using the global transform
-    newPos = refImageTransform.pos + refGlobalTransform.pos
-    newRot = refImageTransform.rot * refGlobalTransform.rot
-    #globalRefImageTransform = Transform(refImageTransform.id,newPos ,newRot,1)
+# METHOD 1: Cross referencing
 
-    #transform the new globalrefImage to the testImage
-    #globalTestImageTransform = Transform(testImageTransform.id, 0,0,1)
-
-    #print("array:" + str(np.array(transformationMatrix)) + ", position:" + str(np.transpose(globalRefImageTransform.pos)))
-    #globalTestImageTransform.pos =  np.matmul(np.array(transformationMatrix), np.transpose(globalRefImageTransform.pos))
-
-
-    #testGlobalTransform = globalTestImageTransform.pos - dict_to_np_vector3(testImageTransform.pos)
-
-    print("The reference Image Global position: " + str(newPos))
-    print("The reference Image Global rotation: " + str(newRot))
-    print("The transformationMatrix: \n" + str(transformationMatrix))
-    print("The test Image local position: " + str(utils.dict_to_np_vector3(testImageTransform.pos)))
-    #print("The test Image Global position: " + str(globalTestImageTransform.pos))
-    print("The Calculated test Global offset:" + str(testGlobalTransform))
-
-
-    return testGlobalTransform
-
-def get_session_scale(image1: ImageTransform, image2: ImageTransform, transMatrix):
-    """Calculates the pixel scale of a transformation matrix"""
-
-    translation, rot = get_translation(transMatrix)
-    if (np.linalg.norm(translation) == 0): return 0
-    scale = np.linalg.norm(image1.pos - image2.pos) / np.linalg.norm(translation)
-    return scale
-
-def triangulate_session(image1: ImageTransform, image2: ImageTransform, transMatrix1, transMatrix2):
-    """Calculates a new transform based on 2 Essential transformations"""
+def cross_reference_matching(testImage, refSession):
+    """Finds the estimated pose of a 'testImage' based on 2 sepreate matches in a 'refSession' """
     
-    translation1, rot1 = get_translation(transMatrix1)
-    translation2, rot2 = get_translation(transMatrix2)
-    
+    bestMatches = get_best_matches(testImage, refSession.imageTransforms, 2) #find 2 best matches
+    R,t,confidence = cross_reference_pose(bestMatches[0], bestMatches[1]) # get the estimated pose
+
+    return R,t, confidence # the position of the test image transform in reference session space
+
+def cross_reference_pose(match1: ImageMatch, match2: ImageMatch):
+    """determines a pose of the 3rd image based on 2 seperate reference matches"""
+
+    def get_position(scaleFactor, imageTransform: ImageTransform, translation : np.array):
+        """Returns the translation in function of a scale factor"""
+        newPosition = imageTransform.pos + scaleFactor * (imageTransform.get_rotation_matrix() @ translation).T
+        return newPosition
+
     def get_distance_array(x):
-        pos1 = get_position(x[0], image1, translation1)
-        pos2 = get_position(x[1], image2, translation2)
+        pos1 = get_position(x[0], match1.image1, match1.translation)
+        pos2 = get_position(x[1], match2.image1, match2.translation)
         return np.linalg.norm(pos2-pos1)
 
     minimum = optimize.fmin(get_distance_array, [1,1])
 
-    pos1 = get_position(minimum[0], image1, translation1)
-    pos2 = get_position(minimum[1], image2, translation2)
-    newPos =(pos1 + pos2)/2
-    return newPos, rot1, pos1,pos2, minimum
+    pos1 = get_position(minimum[0], match1.image1, match1.translation)
+    pos2 = get_position(minimum[1], match2.image1, match2.translation)
+    t =(pos1 + pos2)/2 #return the average of the 2 positions
+    R = match1.image1.get_rotation_matrix() @ match1.rotationMatrix
+    confidence = match1.fidelity * match2.fidelity
+    return R, t, confidence
+
+
+# METHOD 2: Incremental matching
+
+def incremental_matching(testImage, refSession):
+    """tries to determine the pose by first matching reference images to create the initial 3D points"""
+
+    #find the 3 highest linked matches
+    #find the best single match for the test image
+    bestMatch = get_best_matches(testImage, refSession.imageTransforms, nr=1)
+    #find the best result for the matched reference image
+    newList = refSession.imageTransforms
+    newList.remove(bestMatch.image1)
+    bestRefMatch = get_best_matches(bestMatch.refImage, newList)
+    #Calculate the 3D points in the scene with the know real world locations of the 2 reference images
+    
+    bestRefMatch.get_essential_matrix() #calculate the essential matrix and inliers
+    bestRefMatch.calculate_scaling_factor() # get the scene scale by using the real world distances
+    bestRefMatch.triangulate(True) #calulate the 3d points
+
+    R,t = bestMatch.get_pnp_pose(bestRefMatch) #get the rotation and translation with the pnp point algorithm
+    confidence = bestMatch.fidelity * bestRefMatch.fidelity
+    return R,t, confidence
+
+
+# METHOD 3: RayCasting
+#TODO add testmesh raycasting
+def raycast_matching(testImage, refSession):
+    """Determines the estimated pose by matching with 1 reference image and raycasting against the 3d scene"""
+
+    #find the best single match for the test image
+    match = get_best_matches(testImage, refSession.imageTransforms, nr=1)
+    match.calculate_transformation_matrix() # Calculate the essential matrix
+    match.triangulate(useCameraPose = True) # determine the 3D points
+    rayCastImage = match.image1
+
+    #cast a number of rays on the determined points in the scene
+    scalingFactors = []
+    for point in match.points3d:
+        pointVector = point - (rayCastImage.pos)
+        pointDistance = np.linalg.norm(pointVector)
+        direction = pointVector / pointDistance
+        rayDistance = pos3d.cast_ray_in_mesh(refSession.geometries[0], rayCastImage.pos, direction)
+        if(not math.isinf(rayDistance)):
+            scalingFactors.append(rayDistance/pointDistance)
+
+    scalingFactor = sum(scalingFactors) / float(len(scalingFactors))
+    match.set_scaling_factor(scalingFactor)
+    match.triangulate(useCameraPose = True) # determine the 3D points
+
+    R,t = match.get_image2_pos()
+    confidence = match.fidelity
+    return R,t, confidence
+
+
+def get_global_position_offset():
+    pass
+
+
     
 
-def get_position(scaleFactor, imageTransform: ImageTransform, translation : np.array):
-    """Returns the translation in function of a scale factor"""
-    newPosition = imageTransform.pos + scaleFactor * (quaternion.as_rotation_matrix(imageTransform.rot) @ translation).T
-    return newPosition
 
-# helper functions (source https://github.com/harish-vnkt/structure-from-motion)
-def check_pose(E):
-    """Retrieves the rotation and translation components from the essential matrix by decomposing it and verifying the validity of the 4 possible solutions"""
 
-    R1, R2, t1, t2 = get_camera_from_E(E)  # decompose E
-    if not check_determinant(R1):
-        R1, R2, t1, t2 = get_camera_from_E(-E)  # change sign of E if R1 fails the determinant test
 
-    return R1, R2, t1, t2
-
-def get_translation(E):
-    R1, R2, t1, t2 = get_camera_from_E(E)
-
-    return t1.T, R1
-
-def get_camera_from_E(E):
-    """Calculates rotation and translation component from essential matrix"""
-
-    W = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
-    W_t = W.T
-    u, w, vt = np.linalg.svd(E)
-
-    R1 = u @ W @ vt
-    R2 = u @ W_t @ vt
-    t1 = u[:, -1].reshape((3,1))
-    t2 = - t1
-    return R1, R2, t1, t2
-
-def check_determinant(R):
-    """Validates using the determinant of the rotation matrix"""
-
-    if np.linalg.det(R) + 1.0 < 1e-9:
-        return False
-    else:
-        return True
-
-def check_triangulation(points, P):
-    """Checks whether reconstructed points lie in front of the camera"""
-
-    P = np.vstack((P, np.array([0, 0, 0, 1])))
-    reprojected_points = cv2.perspectiveTransform(src=points[np.newaxis], m=P)
-    z = reprojected_points[0, :, -1]
-    if (np.sum(z > 0)/z.shape[0]) < 0.75:
-        return False
-    else:
-        return True

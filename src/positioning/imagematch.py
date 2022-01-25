@@ -3,24 +3,27 @@ import math
 import cv2
 import numpy as np
 
+from imagetransform import ImageTransform
+
 MAX_FEATURES = 20000
 MAX_MATCHES = 1000
 
 class ImageMatch:
     """This class stores all the data of 2 matched images"""
 
-    image1 = None           # the train/reference ImageTransform
-    image2 = None           # the query ImageTransform
-    matches = []            # [N] the matches between the 2 images [kp1_n,kp2_m, distance] x N
-    mask = []               # [1xN] array of the inlier matches
-    inliers1 = []           # [Nx2] array of all the pixel values of image1.keypoints
-    inliers2 = []           # [Nx2] array of all the pixel values of image2.keypoints
-    points3d = []           # [Nx3] array of all the 3D points
-    matchScore = math.inf   # The match score of the image match (lower is better)
-    essentialMatrix = []    # [3x3] matrix E
-    translation = []        # [3,1] matrix t
-    rotationMatrix = []     # [3,3] matrix R
-    fidelity = 0            # a measurement for the quality of the match
+    image1 : ImageTransform = None  # the train/reference ImageTransform
+    image2 : ImageTransform = None  # the query ImageTransform
+    matches = None                  # [N] the matches between the 2 images [kp1_n,kp2_m, distance] x N
+    mask = []                       # [1xN] array of the inlier matches
+    inliers1 = []                   # [Nx2] array of all the pixel values of image1.keypoints
+    inliers2 = []                   # [Nx2] array of all the pixel values of image2.keypoints
+    points3d = []                   # [Nx3] array of all the 3D points
+    matchError = math.inf           # The match score of the image match (lower is better)
+    essentialMatrix = []            # [3x3] matrix E
+    translation = []                # [3,1] matrix t
+    rotationMatrix = []             # [3,3] matrix R
+    fidelity = 1                    # a measurement for the quality of the match
+    matchBoundingBox = []           # the # 3x2 matrix from min x to max z of all the elements in the session
 
     def __init__(self, image1, image2):
         """Initialise the class with 2 images"""
@@ -42,21 +45,23 @@ class ImageMatch:
         # only use the best features
         if(len(matches) < MAX_MATCHES):
             print("only found", len(matches), "good matches")
-            matchScore = math.inf
+            matchError = math.inf
         else:
             matches = matches[:MAX_MATCHES]
             # calculate the match score
             # right now, it's just the average distances of the best points
-            matchScore = 0
+            matchError = 0
             for match in matches:
-                matchScore += match.distance
-            matchScore /= len(matches)
+                matchError += match.distance
+            matchError /= len(matches)
         self.matches = matches
-        self.matchScore = matchScore
+        self.matchError = matchError
         return matches
 
-    def calculate_transformation_matrix(self):
+    def get_essential_matrix(self):
         """Calculates the tranformation between 2 matched images"""
+        
+        if(self.matches is None): self.find_matches()
         
         # Extract location of good matches
         points1 = np.zeros((len(self.matches), 2), dtype=np.float32)
@@ -81,27 +86,6 @@ class ImageMatch:
         self.translation = t
         return E
 
-    def draw_image_matches(self):
-        """Draws the matches on the 2 images and returns a cv2 image"""
-
-        imMatches = cv2.drawMatches(self.image1.get_cv2_image(),self.image1.keypoints,
-                                    self.image2.get_cv2_image(),self.image2.keypoints,
-                                    self.matches,None, flags=2)
-        return imMatches
-
-    def draw_image_inliers(self):
-        """Draws the inliers on the 2 images"""
-
-        matchesMask = self.mask.ravel().tolist()
-        draw_params = dict(matchColor = (0,255,0), # draw matches in green color
-                   singlePointColor = None,
-                   matchesMask = matchesMask, # draw only inliers
-                   flags = 2)
-        imMatches = cv2.drawMatches(self.image1.get_cv2_image(),self.image1.keypoints,
-                                    self.image2.get_cv2_image(),self.image2.keypoints,
-                                    self.matches,None, **draw_params)
-        return imMatches
-
     def get_projectionMatrices(self):
         """Returns 2 projection matrices, the second is the transformation in relation to the first"""
 
@@ -121,12 +105,25 @@ class ImageMatch:
         self.points3d = np.array(points3d[:3]).T # remove homogenious coordinate and reshape to [Nx3]
         return self.points3d
     
-    def calculate_scaling_factor(self):
+    def get_reference_scaling_factor(self):
         """Uses the real world distance to scale the translationvector"""
 
         scalingFactor = np.linalg.norm(self.image2.pos - self.image1.pos)
         self.translation = self.translation * scalingFactor / np.linalg.norm(self.translation)
         return scalingFactor
+
+    def set_scaling_factor(self, scalingFactor):
+        """Uses the real world distance to scale the translationvector"""
+
+        self.translation = self.translation * scalingFactor / np.linalg.norm(self.translation)
+        return self.translation
+
+    def get_image2_pos(self, local = False):
+        """Return the global/local position of image2 with t and R """
+        R = self.image1.get_rotation_matrix() @ self.rotationMatrix.T
+        t = self.image1.pos.T - R @ self.translation
+
+        return R,t
 
     def get_pnp_pose(self, OtherMatch):
         """Calculates the pose of a third camera with matched """
@@ -161,7 +158,28 @@ class ImageMatch:
                                         confidence=0.99, reprojectionError=8.0, flags=cv2.SOLVEPNP_DLS)
         R, _ = cv2.Rodrigues(R)
         return R, t
-   
+        
+    def draw_image_matches(self):
+        """Draws the matches on the 2 images and returns a cv2 image"""
+
+        imMatches = cv2.drawMatches(self.image1.get_cv2_image(),self.image1.keypoints,
+                                    self.image2.get_cv2_image(),self.image2.keypoints,
+                                    self.matches,None, flags=2)
+        return imMatches
+
+    def draw_image_inliers(self):
+        """Draws the inliers on the 2 images"""
+
+        matchesMask = self.mask.ravel().tolist()
+        draw_params = dict(matchColor = (0,255,0), # draw matches in green color
+                   singlePointColor = None,
+                   matchesMask = matchesMask, # draw only inliers
+                   flags = 2)
+        imMatches = cv2.drawMatches(self.image1.get_cv2_image(),self.image1.keypoints,
+                                    self.image2.get_cv2_image(),self.image2.keypoints,
+                                    self.matches,None, **draw_params)
+        return imMatches
+
     def draw_epilines(self):
         """Draw epilines in the 2 images"""
 

@@ -1,9 +1,11 @@
 import math
+from unittest import result
 from numpy import linalg
 import open3d as o3d
 import numpy as np
 import quaternion
 import matplotlib
+import copy
 
 from session import Session
 
@@ -11,20 +13,14 @@ from session import Session
 
 def get_3D_transformation(testSession : Session, refSessions : "list[Session]", resolution = 0.05):
     "Calculate the estimated transformation between 2 point clouds with a given voxelSise"
-    sessionTransformations = []
 
     for refSession in refSessions:
-        sessionTransformations.append(compare_session(testSession, refSession, resolution))
+        compare_session(testSession, refSession, resolution)
 
-    return sessionTransformations
-
-    
+    return testSession.estimations
 
 def compare_session(testSession, refSession, resolution = 0.05):
     "compare 2 session against each other and returs the estimated transformation matrix"
-    nrCheck = 0
-    totalCheck = len(testSession.geometries) * len(refSession.geometries)
-    transformations = []
 
     print("Starting Comparing:", len(testSession.geometries), "Against", len(refSession.geometries), "Geometries")
 
@@ -38,9 +34,12 @@ def compare_session(testSession, refSession, resolution = 0.05):
             if isinstance(refGeometry, o3d.geometry.TriangleMesh):
                 #the geometry is a mesh
                 refPcd = to_pcd(refGeometry, 100000,1)
-            transformations.append(get_pcd_transformation(testPcd, refPcd, resolution))
+            transformation, confidence = get_pcd_transformation(testPcd, refPcd, resolution)
+            R = transformation[:3,:3]
+            t = transformation[:3,3]
+            testSession.add_pose_guess(refSession, R.T,-R.T @ t, confidence)
     
-    return transformations
+
 
 #### Triangle Mesh ####
 
@@ -56,6 +55,7 @@ def import_mesh(path : str):
 
 def to_pcd(mesh : o3d.geometry, nrOfPoints : int, factor : int = 2):
     "Converts a triangle mesh to a point cloud with a given amount of points"
+
     print("converting mesh to PCD with", nrOfPoints, "points")
     pcd = mesh.sample_points_poisson_disk(nrOfPoints, factor)
     print("Converting complete", pcd)
@@ -95,6 +95,7 @@ def cast_ray_from_camera(mesh, startPoint : np.array, rotation : np.array):
 
 def import_point_cloud(path : str):
     "Imports a point cloud from a path"
+
     print("Importing point cloud from:", path)
     pcd = o3d.io.read_point_cloud(path)
     print("Importing complete:",pcd)
@@ -121,6 +122,24 @@ def execute_fast_global_registration(source_pcd, target_pcd, source_fpfh,target_
             maximum_correspondence_distance=radius))
     return result
 
+def execute_global_registration(source_down, target_down, source_fpfh,target_fpfh, voxel_size):
+
+    distance_threshold = voxel_size * 1.5
+    print(":: RANSAC registration on downsampled point clouds.")
+    print("   Since the downsampling voxel size is %.3f," % voxel_size)
+    print("   we use a liberal distance threshold %.3f." % distance_threshold)
+    result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+        source_down, target_down, source_fpfh, target_fpfh, True,
+        distance_threshold,
+        o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+        3, [
+            o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(
+                0.9),
+            o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(
+                distance_threshold)
+        ], o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
+    return result
+
 def get_pcd_transformation(pcdTest : o3d.geometry, pcd2Ref : o3d.geometry, voxelSize : float):
     "Calculate the estimated transformation between 2 point clouds with a given voxelSise"
 
@@ -135,9 +154,60 @@ def get_pcd_transformation(pcdTest : o3d.geometry, pcd2Ref : o3d.geometry, voxel
     fpfh_pcdTest = get_fpfh_features(voxel_pcdTest, voxelSize * 5)
     fpfh_pcdRef = get_fpfh_features(voxel_pcdRef, voxelSize * 5)
 
-    result_fast = execute_fast_global_registration(voxel_pcdTest, voxel_pcdRef,fpfh_pcdTest, fpfh_pcdRef,voxelSize * 5)
-    return result_fast.transformation
+    result_fast = execute_fast_global_registration(voxel_pcdTest, voxel_pcdRef,fpfh_pcdTest, fpfh_pcdRef,voxelSize/2)
+    #TODO get bounding box of inliers
 
+    #result_ransac = execute_global_registration(voxel_pcdTest, voxel_pcdRef,fpfh_pcdTest, fpfh_pcdRef,voxelSize)
+    return result_fast.transformation, result_fast.inlier_rmse #result_ransac.transformation
+
+def voxel_traversal(pcd, origin, direction, voxelSize, maxRange = 100): 
+    """Cast a ray in a voxel array created from the pcd"""
+
+    pcd_Voxel = o3d.geometry.VoxelGrid.create_from_point_cloud(pcd,voxel_size=voxelSize)
+    #the starting index of the voxels
+    voxel_origin = pcd.get_voxel(origin)
+    iX = math.floor(origin[0] * voxelSize) / voxelSize
+    iY = math.floor(origin[1] * voxelSize) / voxelSize
+    iZ = math.floor(origin[2] * voxelSize) / voxelSize
+
+    stepX = np.sign(direction[0])
+    stepY = np.sign(direction[1])
+    stepZ = np.sign(direction[2])
+
+    tDeltaX = 1/direction[0] * voxelSize
+    tDeltaY = 1/direction[1] * voxelSize
+    tDeltaZ = 1/direction[2] * voxelSize
+
+    tMaxX = origin[0]
+    tMaxY = origin[1]
+    tMaxZ = origin[2]
+
+    for i in range(0,maxRange):
+        # check if the current point is in a occupied voxel
+        if(pcd_Voxel.check_if_included(o3d.utility.Vector3dVector([[iX * voxelSize, iY * voxelSize, iY * voxelSize]]))[0]):
+            distance = np.linalg.norm(np.array([iX * voxelSize, iY * voxelSize, iY * voxelSize]) - origin)
+            return True, distance
+
+        if(tMaxX < tMaxY):
+            if(tMaxX < tMaxZ):
+                #traverse in the X direction
+                tMaxX += tDeltaX
+                iX += stepX
+            else:
+                #traverse in the Z direction
+                tMaxZ += tDeltaZ
+                iZ += stepZ
+        else:
+            if(tMaxY < tMaxZ):
+                #traverse in the Y direction
+                tMaxY += tDeltaY
+                iY += stepY
+            else:
+                #traverse in the Z direction
+                tMaxZ += tDeltaZ
+                iZ += stepZ
+
+    return False, math.inf
 
 #### Generic 3D ####
 
@@ -160,6 +230,7 @@ def get_bounding_radius(geometry : o3d.geometry):
 
 def create_3d_camera(pos = [0,0,0], rotation  = np.eye(3), scale = 1.0):
     "Returns a geometry lineset object that represents a camera in 3D space"
+
     box = o3d.geometry.TriangleMesh.create_box(1.6,0.9, 0.1)
     box.translate((-0.8, -0.45, -0.05))
     box.scale(scale, center=(0, 0, 0))
@@ -186,7 +257,6 @@ def show_geometries(geometries, color = False):
 
 
 #### Helper functions
-
 
 def draw_registration_result(source, target, transformation):
     source.paint_uniform_color([1, 0.706, 0])
