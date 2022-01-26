@@ -1,5 +1,11 @@
 """All the weight parameters that affect the pose voting"""
 
+#File names
+JSON_ID = "SessionData.json"
+IMG_EXTENSION = [".jpg", ".png"]
+MESH_EXTENSION = [".obj",".fbx" ]
+PCD_EXTENSION = [".pcd", ".pts", ".ply"]
+
 #2D Matching parameters
 
 MATCHES_2D = 1

@@ -8,16 +8,21 @@ import matplotlib
 import copy
 
 from session import Session
+from geometrymatch import GeometryMatch
+from geometrytransform import GeometryTransform
 
 
 
 def get_3D_transformation(testSession : Session, refSessions : "list[Session]", resolution = 0.05):
-    "Calculate the estimated transformation between 2 point clouds with a given voxelSise"
+    """returns the estimated transformation between 2 point clouds with a given voxelSize
+        methods:
+            1: feature based point cloud matching
+            2: plane based room matching"""
 
     for refSession in refSessions:
         compare_session(testSession, refSession, resolution)
 
-    return testSession.estimations
+    return testSession.get_best_pose()
 
 def compare_session(testSession, refSession, resolution = 0.05):
     "compare 2 session against each other and returs the estimated transformation matrix"
@@ -25,20 +30,42 @@ def compare_session(testSession, refSession, resolution = 0.05):
     print("Starting Comparing:", len(testSession.geometries), "Against", len(refSession.geometries), "Geometries")
 
     for testGeometry in testSession.geometries:
-        testPcd = testGeometry
-        if isinstance(testGeometry, o3d.geometry.TriangleMesh):
-            #the geometry is a mesh
-            testPcd = to_pcd(testGeometry, 100000,1)
-        for refGeometry in refSession.geometries:
-            refPcd = refGeometry
-            if isinstance(refGeometry, o3d.geometry.TriangleMesh):
-                #the geometry is a mesh
-                refPcd = to_pcd(refGeometry, 100000,1)
-            transformation, confidence = get_pcd_transformation(testPcd, refPcd, resolution)
-            R = transformation[:3,:3]
-            t = transformation[:3,3]
-            testSession.add_pose_guess(refSession, R.T,-R.T @ t, confidence)
+        guesses = []
+        
+        guesses = get_best_matches(testGeometry, refSession.geometries)
+        
+        # once we get the image pose in reference session space, we determine the testSession pose in reference session space
+        for guess in guesses:
+            R ,t = guess.get_translation_and_rotation()
+            testSession.add_pose_guess(refSession, R, t, guess.fidelity)
     
+def get_best_matches(testGeometry, refGeometries, nr = 1):
+    """Check a test geometry against a list of reference geometries. Returns a list of the "nr" best matches"""
+
+    results = [] # a list of all the results
+    bestResults = [] # a list of the best results
+    nrCheck = 0
+    totalCheck = len(refGeometries)
+
+    for refGeometry in refGeometries:
+            newMatch = GeometryMatch(refGeometry, testGeometry) #create a new match between 2 images
+            newMatch.find_matches() # find the best matches 
+            results.append(newMatch)
+
+            # check if the newResult is in the top of results
+            bestResults.append(newMatch)
+            bestResults = sorted(bestResults, key= lambda x: x.matchError) #sort them from low to High
+            if(len(bestResults) > nr): #remove the worst match
+                bestResults = bestResults[:(nr-1)]
+
+            nrCheck +=1
+            print(str(nrCheck) + "/" + str(totalCheck) + " checks complete")
+
+    for result in bestResults:
+        result.get_transformation() # determin the transformation and inliers
+
+    #if(nr == 1): return bestResults[0]
+    return bestResults
 
 
 #### Triangle Mesh ####

@@ -11,14 +11,9 @@ import quaternion
 from rdfobject import RdfObject
 
 import utils
+import params
 from imagetransform import ImageTransform
-
-from rdfpointcloud import RdfPointCloud
-
-JSON_ID = "SessionData.json"
-IMG_EXTENSION = [".jpg", ".png"]
-MESH_EXTENSION = [".obj",".fbx" ]
-PCD_EXTENSION = [".pcd", ".pts", ".ply"]
+from geometrytransform import GeometryTransform
 
 class Session(RdfObject):
     """This class stores a full session, including all the images and meshes"""
@@ -33,10 +28,6 @@ class Session(RdfObject):
     estimations = []                # a list of the estimated guasses including their confidence
     fidelity = 1
     accuracy = []
-
-
-
-
 
     def __init__(self, id = None, path= None, position= None, rotation= None, images= None, meshes= None):
         """Initialise the session"""
@@ -63,7 +54,7 @@ class Session(RdfObject):
     def from_path(self, path):
         """Create a session using the directory file path"""
 
-        sessionFile = open(os.path.join(path, JSON_ID),)
+        sessionFile = open(os.path.join(path, params.JSON_ID),)
         sessionData = json.load(sessionFile)
         self.from_dict(sessionData,path)
         return self
@@ -76,9 +67,10 @@ class Session(RdfObject):
             for image in imageIds:
                 if file.find(image["id"]) != -1:
                     #a 2D format file is found, now check if it's a pcd or mesh
-                    if file.endswith(tuple(IMG_EXTENSION)):
+                    if file.endswith(tuple(params.IMG_EXTENSION)):
                         newImg = ImageTransform().from_dict(image, os.path.join(self.dirPath, file))
                         self.imageTransforms.append(newImg)
+
         return self.imageTransforms
     
     def get_geometries(self, meshIds):
@@ -89,14 +81,10 @@ class Session(RdfObject):
             for geometry in meshIds:
                 if file.find(geometry) != -1:
                     #a 3D format file is found, now check if it's a pcd or mesh
-                    if file.endswith(tuple(MESH_EXTENSION)):
-                        newMesh = o3d.io.read_triangle_mesh(os.path.join(self.dirPath, file))
-                        if not newMesh.has_vertex_normals():
-                            newMesh.compute_vertex_normals()
-                        self.geometries.append(newMesh)
-                    elif file.endswith(tuple(PCD_EXTENSION)):
-                        newPcd = o3d.io.read_point_cloud(os.path.join(self.dirPath, file))
-                        self.geometries.append(newPcd)
+                    if(file.endswith(tuple(params.MESH_EXTENSION)) or file.endswith(tuple(params.PCD_EXTENSION))):
+                        newGeometry = GeometryTransform().from_dict(geometry, os.path.join(self.dirPath, file), "mesh")
+                        self.geometries.append(newGeometry)
+
         return self.geometries
 
     def get_bounding_box(self):
@@ -186,7 +174,7 @@ def find_close_sessions(path: str, coordinates: np.array, maxDistance: float):
     closeEnoughSessions = []
     for root, dir, files in os.walk(path, topdown=False):
         for name in files:
-            if(name.endswith(JSON_ID)):
+            if(name.endswith(params.JSON_ID)):
                 print("Found Session data:", os.path.join(root, name))
                 session = Session().from_path(root)
 
