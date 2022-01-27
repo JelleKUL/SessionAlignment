@@ -12,11 +12,11 @@ import quaternion
 from scipy import optimize
 import math
 
-from session import Session
-from imagetransform import ImageTransform
-from imagematch import ImageMatch
-import positioning3d as pos3d
-import utils
+from positioning.session import Session
+from positioning.imagetransform import ImageTransform
+from positioning.imagematch import ImageMatch
+import positioning.positioning3d as pos3d
+import positioning.utils as utils
 
 
 def get_2D_transformation(testSession : Session, refSessions : "list[Session]"):
@@ -59,7 +59,7 @@ def compare_session(testSession : Session, refSession : Session):
 
 
 
-def get_best_matches(testImage, refImages, nr = 1):
+def get_best_matches(testImage, refImages, nr = 1) -> ImageMatch:
     """Check a test image against a list of reference images. Returns a list of the "nr" best matches"""
 
     results = [] # a list of all the results
@@ -76,7 +76,7 @@ def get_best_matches(testImage, refImages, nr = 1):
             bestResults.append(newMatch)
             bestResults = sorted(bestResults, key= lambda x: x.matchError) #sort them from low to High
             if(len(bestResults) > nr): #remove the worst match
-                bestResults = bestResults[:(nr-1)]
+                bestResults = bestResults[:nr]
 
             nrCheck +=1
             print(str(nrCheck) + "/" + str(totalCheck) + " checks complete")
@@ -118,7 +118,7 @@ def cross_reference_pose(match1: ImageMatch, match2: ImageMatch):
     t =(pos1 + pos2)/2 #return the average of the 2 positions
     R = match1.image1.get_rotation_matrix() @ match1.rotationMatrix
     confidence = match1.fidelity * match2.fidelity
-    return R, t, confidence
+    return R, t.T, confidence
 
 
 # METHOD 2: Incremental matching
@@ -130,19 +130,29 @@ def incremental_matching(testImage, refSession):
     #find the best single match for the test image
     bestMatch = get_best_matches(testImage, refSession.imageTransforms, nr=1)
     #find the best result for the matched reference image
-    newList = refSession.imageTransforms
-    newList.remove(bestMatch.image1)
-    bestRefMatch = get_best_matches(bestMatch.refImage, newList)
-    #Calculate the 3D points in the scene with the know real world locations of the 2 reference images
-    
-    bestRefMatch.get_essential_matrix() #calculate the essential matrix and inliers
-    bestRefMatch.calculate_scaling_factor() # get the scene scale by using the real world distances
-    bestRefMatch.triangulate(True) #calulate the 3d points
+    newList = refSession.imageTransforms.copy()
+    bestRefMatch = get_best_session_match(bestMatch.image1, refSession)
 
     R,t = bestMatch.get_pnp_pose(bestRefMatch) #get the rotation and translation with the pnp point algorithm
     confidence = bestMatch.fidelity * bestRefMatch.fidelity
     return R,t, confidence
 
+def get_best_session_match(image, session : Session):
+    """Finds the best match in the same session"""
+
+    if(image not in session.imageTransforms): 
+        print("ERROR: Image not in list")
+        return None
+    newList = session.imageTransforms.copy()
+    newList.remove(image)
+    bestRefMatch = get_best_matches(image, newList)
+    #Calculate the 3D points in the scene with the know real world locations of the 2 reference images
+    
+    bestRefMatch.get_essential_matrix() #calculate the essential matrix and inliers
+    bestRefMatch.get_reference_scaling_factor() # get the scene scale by using the real world distances
+    bestRefMatch.triangulate(True) #calulate the 3d points
+
+    return bestRefMatch
 
 # METHOD 3: RayCasting
 #TODO add testmesh raycasting
@@ -151,7 +161,7 @@ def raycast_matching(testImage, refSession):
 
     #find the best single match for the test image
     match = get_best_matches(testImage, refSession.imageTransforms, nr=1)
-    match.calculate_transformation_matrix() # Calculate the essential matrix
+    match.get_essential_matrix() # Calculate the essential matrix
     match.triangulate(useCameraPose = True) # determine the 3D points
     rayCastImage = match.image1
 
@@ -172,6 +182,7 @@ def raycast_matching(testImage, refSession):
     R,t = match.get_image2_pos()
     confidence = match.fidelity
     return R,t, confidence
+
 
 
 def get_global_position_offset():
