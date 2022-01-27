@@ -11,6 +11,8 @@ from rdflib.namespace import CSVW, DC, DCAT, DCTERMS, DOAP, FOAF, ODRL2, ORG, OW
 
 class RdfObject():
     """This base class contains rdf meta data and methods to import/ export the data to RDF"""
+    def __init__(self):
+        pass
 
 #    g = Graph()
 #    node = None

@@ -1,16 +1,16 @@
+import copy
 import math
 from unittest import result
-from numpy import linalg
-import open3d as o3d
-import numpy as np
-import quaternion
+
 import matplotlib
-import copy
+import numpy as np
+import open3d as o3d
+import quaternion
+from numpy import linalg
 
-from session import Session
-from geometrymatch import GeometryMatch
-from geometrytransform import GeometryTransform
-
+from positioning.geometrymatch import GeometryMatch
+from positioning.geometrytransform import GeometryTransform
+from positioning.session import Session
 
 
 def get_3D_transformation(testSession : Session, refSessions : "list[Session]", resolution = 0.05):

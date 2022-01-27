@@ -8,12 +8,12 @@ import numpy as np
 import open3d as o3d
 import quaternion
 
-from rdfobject import RdfObject
+from positioning.rdfobject import RdfObject
 
-import utils
-import params
-from imagetransform import ImageTransform
-from geometrytransform import GeometryTransform
+import positioning.utils as utils
+import positioning.params as params
+from positioning.imagetransform import ImageTransform
+from positioning.geometrytransform import GeometryTransform
 
 class Session(RdfObject):
     """This class stores a full session, including all the images and meshes"""
@@ -21,7 +21,7 @@ class Session(RdfObject):
     sessionId = ""                  # the id/name of the session
     dirPath = ""                    # the system path of session directory
     globalPosition = [0,0,0]        # the global position of the session origin
-    globalRotation = [0,0,0,0]      # the global rotation as a quaternion
+    globalRotation = [0,0,0,1]      # the global rotation as a quaternion
     boundingBox = [[0,0,0],[0,0,0]] # 3x2 matrix from min x to max z of all the elements in the session
     imageTransforms = []            # a list of all the image transforms
     geometries = []                 # a list of the open3d geometries (meshes/pcd's together)
@@ -116,14 +116,13 @@ class Session(RdfObject):
     def get_rotation_matrix(self):
         """Returns the 3x3 rotation matrix R """
 
-        return quaternion.as_rotation_matrix(self.rot)
+        return quaternion.as_rotation_matrix(self.globalRotation)
         
     def add_pose_guess(self, otherSession, R,t, confidence):
         """Add a pose guess to the session"""
 
         globalRot = otherSession.get_rotation_matrix() @ R
-        globalPos = otherSession.globalPosition + otherSession.get_rotation_matrix() @ t
-
+        globalPos = np.reshape(otherSession.globalPosition, (3,1)) + np.reshape(otherSession.get_rotation_matrix() @ t, (3,1))
         self.estimations.append([globalRot, globalPos, confidence * otherSession.fidelity])
 
     def get_best_pose(self):

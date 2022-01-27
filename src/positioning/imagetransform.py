@@ -7,8 +7,8 @@ import cv2
 import numpy as np
 import quaternion
 
-import utils
-from rdfobject import RdfObject
+import positioning.utils as utils
+from positioning.rdfobject import RdfObject
 
 class ImageTransform(RdfObject):
     """This class contains the image and its camera parameters"""
@@ -41,7 +41,7 @@ class ImageTransform(RdfObject):
         self.pos, self.rot = utils.convert_to_open3d(utils.dict_to_np_vector3(dict["pos"]), utils.dict_to_quaternion(dict["rot"]))
         self.fov = dict["fov"]
         self.path = path
-        return self.get_cv2_image()
+        return self
 
     def get_cv2_image(this):
         """ Returns the Image in color as a cv2/numpy array"""

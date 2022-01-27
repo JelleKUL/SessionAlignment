@@ -2,9 +2,9 @@ import open3d as o3d
 import numpy as np
 import math
 
-import params
+import positioning.params as params
 
-from rdfobject import RdfObject
+from positioning.rdfobject import RdfObject
 
 class GeometryTransform(RdfObject):
     """Stores all the data about a geometry"""
@@ -28,7 +28,8 @@ class GeometryTransform(RdfObject):
     def from_dict(self, dict, path, type):
         """the input path is the location of the folder, type = 'mesh' or 'pcd' """
 
-        self.id = dict["id"]
+        #self.id = dict["id"]
+        self.id = dict
         self.path = path
         return self.get_geometry()
 
@@ -79,7 +80,7 @@ class GeometryTransform(RdfObject):
         return self.features
 
     def get_distance_from_point(self, origin, direction):
-        """Returns the distance from a raycast fro a point to the geometry"""
+        """Returns the distance from a raycast from a point to the geometry"""
 
         distance = math.inf
         #Check the type of the geometry

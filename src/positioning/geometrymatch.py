@@ -1,7 +1,10 @@
-from matplotlib import transforms
-from geometrytransform import GeometryTransform
-import open3d as o3d
 import math
+
+import open3d as o3d
+from matplotlib import transforms
+
+from positioning.geometrytransform import GeometryTransform
+
 
 class GeometryMatch:
     """This class stores all the data of a 3D match between 2 Geometries"""

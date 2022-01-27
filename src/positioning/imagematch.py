@@ -3,7 +3,7 @@ import math
 import cv2
 import numpy as np
 
-from imagetransform import ImageTransform
+from positioning.imagetransform import ImageTransform
 
 MAX_FEATURES = 20000
 MAX_MATCHES = 1000
@@ -26,7 +26,7 @@ class ImageMatch:
     matchBoundingBox = []           # the # 3x2 matrix from min x to max z of all the elements in the session
 
     def __init__(self, image1, image2):
-        """Initialise the class with 2 images"""
+        """Initialise the class with 2 images: reference - query"""
 
         self.image1 = image1
         self.image2 = image2
@@ -59,7 +59,7 @@ class ImageMatch:
         return matches
 
     def get_essential_matrix(self):
-        """Calculates the tranformation between 2 matched images"""
+        """Calculates the tranformation between 2 matched images eg. the transformation from ref to query"""
         
         if(self.matches is None): self.find_matches()
         
@@ -150,7 +150,7 @@ class ImageMatch:
                         # obtain the 3D point from the point_map
                         point_3D = OtherMatch.points3d[j]
                         points_3D.append(point_3D)
-                        print("point",j,":\n2D:",point_2D, "\n3D:",point_3D)
+                        #print("point",j,":\n2D:",point_2D, "\n3D:",point_3D)
                     j+=1
 
         # compute new pose using solvePnPRansac
