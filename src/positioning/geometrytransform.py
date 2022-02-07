@@ -2,9 +2,9 @@ import open3d as o3d
 import numpy as np
 import math
 
-import positioning.params as params
+import params as params
 
-from positioning.rdfobject import RdfObject
+from rdfobject import RdfObject
 
 class GeometryTransform(RdfObject):
     """Stores all the data about a geometry"""
@@ -31,7 +31,17 @@ class GeometryTransform(RdfObject):
         #self.id = dict["id"]
         self.id = dict
         self.path = path
-        return self.get_geometry()
+        self.get_geometry()
+        return self
+
+    def from_path(self, path):
+        """the input path is the location of the folder, type = 'mesh' or 'pcd' """
+
+        #self.id = dict["id"]
+        self.id = path
+        self.path = path
+        self.get_geometry()
+        return self
 
     def get_geometry(self):
         """Returns the open3d geometry object"""
@@ -55,8 +65,9 @@ class GeometryTransform(RdfObject):
 
         if(self.voxelPcd is None):
             if(voxelSize != -1): self.voxelSize = voxelSize
+
             if (isinstance(self.geometry, o3d.geometry.TriangleMesh)):
-                voxelMesh = self.geometry.simplify_vertex_clustering(voxelSize)
+                voxelMesh = self.geometry.simplify_vertex_clustering(self.voxelSize)
                 voxelPcd = o3d.geometry.PointCloud()
                 voxelPcd.points = o3d.utility.Vector3dVector(voxelMesh.vertices)
                 self.voxelPcd = voxelPcd
@@ -74,8 +85,10 @@ class GeometryTransform(RdfObject):
         if(voxelSize != -1): self.voxelSize = voxelSize
 
         if(self.features is None):
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=self.voxelSize*2, max_nn=30)
+            self.voxelPcd.estimate_normals(search_param)
             search_param = o3d.geometry.KDTreeSearchParamHybrid(radius=self.voxelSize * 5, max_nn=100)
-            self.features = o3d.pipelines.registration.compute_fpfh_feature(self.get_voxel_pcd(),search_param)
+            self.features = o3d.pipelines.registration.compute_fpfh_feature(self.voxelPcd,search_param)
 
         return self.features
 
@@ -92,8 +105,6 @@ class GeometryTransform(RdfObject):
         return distance
 
 
-
-# 
 
 def cast_ray_in_mesh(mesh, origin : np.array, direction : np.array):
     "Casts a ray in a certain direction on a mesh, returns the distance to the hit"

@@ -12,11 +12,11 @@ import quaternion
 from scipy import optimize
 import math
 
-from positioning.session import Session
-from positioning.imagetransform import ImageTransform
-from positioning.imagematch import ImageMatch
-import positioning.positioning3d as pos3d
-import positioning.utils as utils
+from session import Session
+from imagetransform import ImageTransform
+from imagematch import ImageMatch
+import positioning3d as pos3d
+import utils as utils
 
 
 def get_2D_transformation(testSession : Session, refSessions : "list[Session]"):
@@ -164,6 +164,18 @@ def raycast_matching(testImage, refSession):
     match.get_essential_matrix() # Calculate the essential matrix
     match.triangulate(useCameraPose = True) # determine the 3D points
     rayCastImage = match.image1
+
+    #if(len(testSession.geometries) > 0):
+    #        # the test sesison has geometry
+    #        geometry = testSession.geometries[0]
+    #        camera = testImage
+    #    
+    #    if(len(refSession.geometries) > 0):
+    #        # the ref sesison has geometry
+    #        geometry = refSession.geometries[0]
+    #        camera = refImage
+    #
+    #    geometry.get_distance_from_point(camera.pos, camera.rot)
 
     #cast a number of rays on the determined points in the scene
     scalingFactors = []

@@ -13,6 +13,11 @@ class RdfObject():
     """This base class contains rdf meta data and methods to import/ export the data to RDF"""
     def __init__(self):
         pass
+    
+    def to_rdf(self):
+        """Converts the object to an RDF dictionary and saves it a a file"""
+        pass
+        #self.g.add((self.node,Namespace.v4d.pmin, Literal(min(bb))))
 
 #    g = Graph()
 #    node = None

@@ -3,7 +3,7 @@ import math
 import cv2
 import numpy as np
 
-from positioning.imagetransform import ImageTransform
+from imagetransform import ImageTransform
 
 MAX_FEATURES = 20000
 MAX_MATCHES = 1000
@@ -187,26 +187,26 @@ class ImageMatch:
         # drawing its lines on left image
         lines1 = cv2.computeCorrespondEpilines(self.image2.keypoints.reshape(-1,1,2), 2,self.fundamentalMatrix)
         lines1 = lines1.reshape(-1,3)
-        img5,img6 = self.drawlines(self.image1.get_cv_image(),self.image2.get_cv_image(),lines1,self.image1.keypoints,self.image2.keypoints)
+        img5,img6 = drawlines(self.image1.get_cv_image(),self.image2.get_cv_image(),lines1,self.image1.keypoints,self.image2.keypoints)
 
         # Find epilines corresponding to points in left image (first image) and
         # drawing its lines on right image
         lines2 = cv2.computeCorrespondEpilines(self.image1.keypoints.reshape(-1,1,2), 1,self.fundamentalMatrix)
         lines2 = lines2.reshape(-1,3)
-        img3,img4 = self.drawlines(self.image2.get_cv_image(),self.image1.get_cv_image(),lines2,self.image2.keypoints,self.image1.keypoints)
+        img3,img4 = drawlines(self.image2.get_cv_image(),self.image1.get_cv_image(),lines2,self.image2.keypoints,self.image1.keypoints)
 
         return img5, img6
 
-    def drawlines(self, img1,img2,lines,pts1,pts2):
-        ''' img1 - image on which we draw the epilines for the points in img2
-            lines - corresponding epilines '''
-
-        r,c = img1.shape
-        img1 = cv2.cvtColor(img1,cv2.COLOR_GRAY2BGR)
-        img2 = cv2.cvtColor(img2,cv2.COLOR_GRAY2BGR)
-        for r,pt1,pt2 in zip(lines,pts1,pts2):
-            color = tuple(np.random.randint(0,255,3).tolist())
-            x0,y0 = map(int, [0, -r[2]/r[1] ])
-            x1,y1 = map(int, [c, -(r[2]+r[0]*c)/r[1] ])
-            img1 = cv2.line(img1, (x0,y0), (x1,y1), color,3)
-        return img1,img2
+def drawlines(img1,img2,lines,pts1,pts2):
+    ''' img1 - image on which we draw the epilines for the points in img2
+        lines - corresponding epilines '''
+    
+    r,c = img1.shape
+    img1 = cv2.cvtColor(img1,cv2.COLOR_GRAY2BGR)
+    img2 = cv2.cvtColor(img2,cv2.COLOR_GRAY2BGR)
+    for r,pt1,pt2 in zip(lines,pts1,pts2):
+        color = tuple(np.random.randint(0,255,3).tolist())
+        x0,y0 = map(int, [0, -r[2]/r[1] ])
+        x1,y1 = map(int, [c, -(r[2]+r[0]*c)/r[1] ])
+        img1 = cv2.line(img1, (x0,y0), (x1,y1), color,5)
+    return img1,img2

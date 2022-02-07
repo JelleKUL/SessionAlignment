@@ -7,8 +7,8 @@ import cv2
 import numpy as np
 import quaternion
 
-import positioning.utils as utils
-from positioning.rdfobject import RdfObject
+import utils as utils
+from rdfobject import RdfObject
 
 class ImageTransform(RdfObject):
     """This class contains the image and its camera parameters"""

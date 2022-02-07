@@ -8,12 +8,11 @@ import numpy as np
 import open3d as o3d
 import quaternion
 
-from positioning.rdfobject import RdfObject
-
-import positioning.utils as utils
-import positioning.params as params
-from positioning.imagetransform import ImageTransform
-from positioning.geometrytransform import GeometryTransform
+from rdfobject import RdfObject
+import utils as utils
+import params as params
+from imagetransform import ImageTransform
+from geometrytransform import GeometryTransform
 
 class Session(RdfObject):
     """This class stores a full session, including all the images and meshes"""

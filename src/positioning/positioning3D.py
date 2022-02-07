@@ -8,9 +8,9 @@ import open3d as o3d
 import quaternion
 from numpy import linalg
 
-from positioning.geometrymatch import GeometryMatch
-from positioning.geometrytransform import GeometryTransform
-from positioning.session import Session
+from geometrymatch import GeometryMatch
+from geometrytransform import GeometryTransform
+from session import Session
 
 
 def get_3D_transformation(testSession : Session, refSessions : "list[Session]", resolution = 0.05):
