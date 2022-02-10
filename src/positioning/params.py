@@ -10,6 +10,7 @@ PCD_EXTENSION = [".pcd", ".pts", ".ply"]
 
 MATCHES_2D = 1
 ERROR_2D = 1
+MAX_ERROR_2D = 50
 
 LEAST_DISTANCE = 1
 INCREMENTAL = 1

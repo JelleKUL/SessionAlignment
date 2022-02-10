@@ -49,8 +49,8 @@ class GeometryTransform(RdfObject):
         if(self.geometry is None):
             if(self.path.endswith(tuple(params.MESH_EXTENSION))):
                 newGeometry = o3d.io.read_triangle_mesh(self.path)
-                if not newGeometry.has_vertex_normals():
-                    newGeometry.compute_vertex_normals()
+                #if not newGeometry.has_vertex_normals():
+                newGeometry.compute_vertex_normals()
             if(self.path.endswith(tuple(params.PCD_EXTENSION))):
                 newGeometry = o3d.io.read_point_cloud(self.path)
             self.geometry = newGeometry
@@ -98,9 +98,9 @@ class GeometryTransform(RdfObject):
         distance = math.inf
         #Check the type of the geometry
         if (isinstance(self.geometry, o3d.geometry.TriangleMesh)):
-            distance = cast_ray_in_mesh(self.geometry, origin, direction)
+            distance = cast_ray_in_mesh(self.get_geometry(), origin, direction)
         elif (isinstance(self.geometry, o3d.geometry.PointCloud)):
-            distance = voxel_traversal(self.geometry, origin, direction, self.voxelSize)
+            distance = voxel_traversal(self.get_geometry(), origin, direction, self.voxelSize)
 
         return distance
 

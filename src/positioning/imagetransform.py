@@ -14,7 +14,7 @@ class ImageTransform(RdfObject):
     """This class contains the image and its camera parameters"""
 
     id = ""                     # the id/name of the image without it's extension
-    pos = (0,0,0)               # the position of the image in sesison space
+    pos = (0,0,0)               # the position of the image in session space
     rot = (0,0,0,0)             # the rotation quaternion in sesison space
     fov = 0                     # the full vertical field of view of the camera
     path = ""                   # the full path of the image
@@ -23,7 +23,7 @@ class ImageTransform(RdfObject):
     keypoints = None            # the cv2 generated keypoints 
     descriptors = None          # the cv2 generated descriptors
     image = None                # the cv2_image
-    accuracy = []
+    accuracy = 1
 
     def __init__(self, id = None, pos= None, rot= None, fov= None, path= None):
         """the input path is the location of the folder"""
@@ -38,7 +38,8 @@ class ImageTransform(RdfObject):
         """the input path is the location of the folder"""
 
         self.id = dict["id"]
-        self.pos, self.rot = utils.convert_to_open3d(utils.dict_to_np_vector3(dict["pos"]), utils.dict_to_quaternion(dict["rot"]))
+        self.pos = utils.dict_to_np_vector3(dict["pos"]) 
+        self.rot = utils.dict_to_quaternion(dict["rot"])
         self.fov = dict["fov"]
         self.path = path
         return self
@@ -88,14 +89,14 @@ class ImageTransform(RdfObject):
         T[:3, 3] =  self.pos.T
         return T
 
-    def get_camera_geometry(this, scale = 1):
+    def get_camera_geometry(self, scale = 1):
         "Returns a open3d geometry object that represents a camera in 3D space"
 
         box = o3d.geometry.TriangleMesh.create_box(1.6,0.9, 0.1)
         box.translate((-0.8, -0.45, -0.05))
         box.scale(scale, center=(0, 0, 0))
-        box.rotate(box.get_rotation_matrix_from_quaternion(quaternion.as_float_array(this.rot)))
-        box.translate(this.pos)
+        box.rotate(box.get_rotation_matrix_from_quaternion(quaternion.as_float_array(self.rot)))
+        box.translate(self.pos)
         return box
 
     def set_transformation_matrix(self, pos, rot):

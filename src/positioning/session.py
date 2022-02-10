@@ -86,6 +86,17 @@ class Session(RdfObject):
 
         return self.geometries
 
+    def get_session_3d_objects(self):
+        """Returns all the meshes and image transforms as open3d object to plot"""
+
+        objects = []
+
+        for image in self.imageTransforms:
+            objects.append(image.get_camera_geometry(0.2))
+        for geometry in self.geometries:
+            objects.append(geometry.get_geometry())
+        return objects
+
     def get_bounding_box(self):
         """returns a 2x3 numpy matrix containing the min and max values of the sessionData"""
 
@@ -107,7 +118,7 @@ class Session(RdfObject):
     def get_transformation_matrix(self):
         "returns the transformationmatrix of the session"
 
-        matrix = quaternion.as_rotation_matrix(self.globalRotation)
+        matrix = quaternion.as_rotation_matrix(np.normalized(self.globalRotation))
         matrix = np.concatenate((matrix,self.globalPosition.T), axis = 1)
         matrix = np.concatenate((matrix, np.array([0,0,0,1])), axis = 0)
         return matrix
@@ -115,7 +126,7 @@ class Session(RdfObject):
     def get_rotation_matrix(self):
         """Returns the 3x3 rotation matrix R """
 
-        return quaternion.as_rotation_matrix(self.globalRotation)
+        return quaternion.as_rotation_matrix(np.normalized(self.globalRotation))
         
     def add_pose_guess(self, otherSession, R,t, confidence):
         """Add a pose guess to the session"""
@@ -142,6 +153,29 @@ class Session(RdfObject):
         averagePosition = np.average(T,axis = 0,weights = w)
 
         return averageRotation, averagePosition
+
+    def convert_axis(self, mirrorAxis: str = "y"):
+        posM = np.array([1,1,1])
+        rotM = np.array([1,1,1,1])
+        if(mirrorAxis.lower() == "x"):
+            posM = np.array([-1,1,1])
+            rotM = np.array([-1,1,1,-1])
+        if(mirrorAxis.lower() == "y"):
+            posM = np.array([1,-1,1])
+            rotM = np.array([-1,1,-1,1])
+        if(mirrorAxis.lower() == "z"):
+            posM = np.array([1,1,-1])
+            rotM = np.array([1,1,-1,-1])
+
+        for image in self.imageTransforms:
+            image.pos *= posM
+            image.rot = quaternion.from_float_array(quaternion.as_float_array(image.rot) * rotM)
+        for geometry in self.geometries:
+            R = geometry.geometry.get_rotation_matrix_from_xyz((0, 0, np.pi)) #rotate to match the opencv axis of Y down
+            geometry.geometry.rotate(R, center=(0, 0, 0))
+            #TODO add translation?
+        
+
 
     def set_global_pos_rot(self,pos, rot):
         """Set the glbal position and rotation of the sesison"""

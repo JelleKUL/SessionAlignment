@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 
 from imagetransform import ImageTransform
+import params
 
 MAX_FEATURES = 20000
 MAX_MATCHES = 1000
@@ -11,19 +12,24 @@ MAX_MATCHES = 1000
 class ImageMatch:
     """This class stores all the data of 2 matched images"""
 
-    image1 : ImageTransform = None  # the train/reference ImageTransform
-    image2 : ImageTransform = None  # the query ImageTransform
+    image1 : ImageTransform = None  # the query ImageTransform
+    image2 : ImageTransform = None  # the train ImageTransform
     matches = None                  # [N] the matches between the 2 images [kp1_n,kp2_m, distance] x N
     mask = []                       # [1xN] array of the inlier matches
     inliers1 = []                   # [Nx2] array of all the pixel values of image1.keypoints
     inliers2 = []                   # [Nx2] array of all the pixel values of image2.keypoints
     points3d = []                   # [Nx3] array of all the 3D points
+    points2d = []
+    pointMap = []
     matchError = math.inf           # The match score of the image match (lower is better)
     essentialMatrix = []            # [3x3] matrix E
     translation = []                # [3,1] matrix t
     rotationMatrix = []             # [3,3] matrix R
     fidelity = 1                    # a measurement for the quality of the match
-    matchBoundingBox = []           # the # 3x2 matrix from min x to max z of all the elements in the session
+    boundingBoxSurface = 0          # The x&y dimension of the matchesboundingbox
+    pointBoundingBox = []           # the # 3x2 matrix from min x to max z of all the elements in the session
+
+    iterativeMatch = []
 
     def __init__(self, image1, image2):
         """Initialise the class with 2 images: reference - query"""
@@ -33,30 +39,30 @@ class ImageMatch:
     
     def find_matches(self):
         """Finds matches between the 2 images"""
-
-        # get cv2 ORb features
-        self.image1.get_cv2_features(MAX_FEATURES)
-        self.image2.get_cv2_features(MAX_FEATURES)
-        # Match features.
-        matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-        matches = matcher.match(self.image1.descriptors, self.image2.descriptors, None)
-        # Sort matches by score
-        matches = sorted(matches, key = lambda x:x.distance)
-        # only use the best features
-        if(len(matches) < MAX_MATCHES):
-            print("only found", len(matches), "good matches")
-            matchError = math.inf
-        else:
-            matches = matches[:MAX_MATCHES]
-            # calculate the match score
-            # right now, it's just the average distances of the best points
-            matchError = 0
-            for match in matches:
-                matchError += match.distance
-            matchError /= len(matches)
-        self.matches = matches
-        self.matchError = matchError
-        return matches
+        if(self.matches is None):
+            # get cv2 ORb features
+            self.image1.get_cv2_features(MAX_FEATURES)
+            self.image2.get_cv2_features(MAX_FEATURES)
+            # Match features.
+            matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+            matches = matcher.match(self.image1.descriptors, self.image2.descriptors, None)
+            # Sort matches by score
+            matches = sorted(matches, key = lambda x:x.distance)
+            # only use the best features
+            if(len(matches) < MAX_MATCHES):
+                print("only found", len(matches), "good matches")
+                matchError = math.inf
+            else:
+                matches = matches[:MAX_MATCHES]
+                # calculate the match score
+                # right now, it's just the average distances of the best points
+                matchError = 0
+                for match in matches:
+                    matchError += match.distance
+                matchError /= len(matches)
+            self.matches = matches
+            self.matchError = matchError
+        return self.matches
 
     def get_essential_matrix(self):
         """Calculates the tranformation between 2 matched images eg. the transformation from ref to query"""
@@ -103,6 +109,9 @@ class ImageMatch:
         if(useCameraPose): # transform all the points by the transformation matrix of the first camera to place them in session space
             points3d = self.image1.get_transformation_matrix() @ points3d
         self.points3d = np.array(points3d[:3]).T # remove homogenious coordinate and reshape to [Nx3]
+        self.pointMap = []
+        for i,point in enumerate(self.points3d):
+            self.pointMap.append([ self.inliers1[i], self.inliers2[i], self.points3d[i]])
         return self.points3d
     
     def get_reference_scaling_factor(self):
@@ -120,45 +129,52 @@ class ImageMatch:
 
     def get_image2_pos(self, local = False):
         """Return the global/local position of image2 with t and R """
-        R = self.image1.get_rotation_matrix() @ self.rotationMatrix.T
-        t = self.image1.pos.T - R @ self.translation
+        if(local):
+            return self.rotationMatrix, self.translation
+        else:
+            R = self.image1.get_rotation_matrix() @ self.rotationMatrix.T
+            t = np.reshape(self.image1.pos, (3,1)) - np.reshape(self.image1.get_rotation_matrix() @ self.translation,(3,1))
+            print("image1 pos:",self.image1.pos, "translation:", self.image1.get_rotation_matrix() @ self.translation)
 
         return R,t
 
     def get_pnp_pose(self, OtherMatch):
-        """Calculates the pose of a third camera with matched """
+        """Calculates the pose of a third camera with matches """
+        self.fidelity = params.ERROR_2D
         
         # match old descriptors against the descriptors in the new view
-        matches = self.find_matches()
+        self.find_matches()
+        self.get_essential_matrix()
         points_3D = []
         points_2D = []
 
-        # build corresponding array of 2D points and 3D points
-        for match in matches:
-            old_image_idx, new_image_kp_idx, old_image_kp_idx = match.imgIdx, match.queryIdx, match.trainIdx
-            j = 0
-            for i, oldmatch in enumerate(OtherMatch.matches):
-                if(OtherMatch.mask[i] == 1): #the match has a 3d point
-                    if(oldmatch.queryIdx == match.trainIdx):
-                    
-                        #the index of the old reference image match is also in the new test image
-                        
-                        # obtain the 2D point from match
-                        point_2D = np.array(self.image2.keypoints[new_image_kp_idx].pt).T.reshape((1, 2))
-                        points_2D.append(point_2D)
+        # loop over all the 3d points in the other match to find the same points in this match
+        self.iterativeMatch = []
+        for point in OtherMatch.pointMap:
+            currentOtherPixel = np.around(point[1])
+            for match in self.matches:
+                currentSelfPixel = np.around(self.image1.keypoints[match.queryIdx].pt)
+                currentSelfQueryPixel = np.around(self.image2.keypoints[match.trainIdx].pt)
+                #print(currentSelfPixel)
+                if(np.array_equal(currentOtherPixel,currentSelfPixel)):
+                    #print("found match: ", currentSelfPixel)
+                    points_3D.append(point[2])
+                    points_2D.append(np.array(currentSelfQueryPixel).T.reshape((1, 2)))
+                    self.iterativeMatch.append([np.around(point[0]), currentSelfPixel, currentSelfQueryPixel, point[2]])
+                    break
 
-                        # obtain the 3D point from the point_map
-                        point_3D = OtherMatch.points3d[j]
-                        points_3D.append(point_3D)
-                        #print("point",j,":\n2D:",point_2D, "\n3D:",point_3D)
-                    j+=1
-
-        # compute new pose using solvePnPRansac
+        # compute new inverse pose using solvePnPRansac
         _, R, t, _ = cv2.solvePnPRansac(np.array(points_3D), np.array(points_2D), self.image2.get_camera_matrix(), None,
-                                        confidence=0.99, reprojectionError=8.0, flags=cv2.SOLVEPNP_DLS)
+                                        confidence=0.99, reprojectionError=8.0, flags=cv2.SOLVEPNP_DLS, useExtrinsicGuess=True)
         R, _ = cv2.Rodrigues(R)
-        return R, t
+        self.points3d = points_3D
+        return R.T, -R.T @ t
         
+    def get_fidelity_array(self):
+        """Returns the "sensor type, match error and match BB" as variables to calculate the fidelity in the end"""
+        return [self.image1.accuracy + self.image2.accuracy , self.matchError, self.boundingBoxSurface]
+
+    
     def draw_image_matches(self):
         """Draws the matches on the 2 images and returns a cv2 image"""
 

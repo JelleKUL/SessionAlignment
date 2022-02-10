@@ -96,7 +96,7 @@ def cross_reference_matching(testImage, refSession):
     bestMatches = get_best_matches(testImage, refSession.imageTransforms, 2) #find 2 best matches
     R,t,confidence = cross_reference_pose(bestMatches[0], bestMatches[1]) # get the estimated pose
 
-    return R,t, confidence # the position of the test image transform in reference session space
+    return R,t, bestMatches # the position of the test image transform in reference session space
 
 def cross_reference_pose(match1: ImageMatch, match2: ImageMatch):
     """determines a pose of the 3rd image based on 2 seperate reference matches"""
@@ -117,7 +117,7 @@ def cross_reference_pose(match1: ImageMatch, match2: ImageMatch):
     pos2 = get_position(minimum[1], match2.image1, match2.translation)
     t =(pos1 + pos2)/2 #return the average of the 2 positions
     R = match1.image1.get_rotation_matrix() @ match1.rotationMatrix
-    confidence = match1.fidelity * match2.fidelity
+    confidence = match1.fidelity + match2.fidelity
     return R, t.T, confidence
 
 
@@ -130,12 +130,11 @@ def incremental_matching(testImage, refSession):
     #find the best single match for the test image
     bestMatch = get_best_matches(testImage, refSession.imageTransforms, nr=1)
     #find the best result for the matched reference image
-    newList = refSession.imageTransforms.copy()
     bestRefMatch = get_best_session_match(bestMatch.image1, refSession)
 
     R,t = bestMatch.get_pnp_pose(bestRefMatch) #get the rotation and translation with the pnp point algorithm
-    confidence = bestMatch.fidelity * bestRefMatch.fidelity
-    return R,t, confidence
+    confidence = bestMatch.fidelity + bestRefMatch.fidelity
+    return R,t, [bestMatch, bestRefMatch]
 
 def get_best_session_match(image, session : Session):
     """Finds the best match in the same session"""
@@ -183,17 +182,18 @@ def raycast_matching(testImage, refSession):
         pointVector = point - (rayCastImage.pos)
         pointDistance = np.linalg.norm(pointVector)
         direction = pointVector / pointDistance
-        rayDistance = pos3d.cast_ray_in_mesh(refSession.geometries[0], rayCastImage.pos, direction)
+        rayDistance = refSession.geometries[0].get_distance_from_point(rayCastImage.pos, direction)
         if(not math.isinf(rayDistance)):
             scalingFactors.append(rayDistance/pointDistance)
 
     scalingFactor = sum(scalingFactors) / float(len(scalingFactors))
+    print("ScalingFactor:", scalingFactor)
     match.set_scaling_factor(scalingFactor)
     match.triangulate(useCameraPose = True) # determine the 3D points
 
-    R,t = match.get_image2_pos()
+    R,t = match.get_image2_pos(False)
     confidence = match.fidelity
-    return R,t, confidence
+    return R,t, [match]
 
 
 
