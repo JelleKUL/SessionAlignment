@@ -3,6 +3,7 @@
 import json
 import os
 from math import sqrt
+import datetime
 
 import numpy as np
 import open3d as o3d
@@ -13,19 +14,21 @@ import utils as utils
 import params as params
 from imagetransform import ImageTransform
 from geometrytransform import GeometryTransform
+from estimation import PoseEstimation
 
 class Session(RdfObject):
     """This class stores a full session, including all the images and meshes"""
 
-    sessionId = ""                  # the id/name of the session
-    dirPath = ""                    # the system path of session directory
-    globalPosition = [0,0,0]        # the global position of the session origin
-    globalRotation = [0,0,0,1]      # the global rotation as a quaternion
-    boundingBox = [[0,0,0],[0,0,0]] # 3x2 matrix from min x to max z of all the elements in the session
-    imageTransforms = []            # a list of all the image transforms
-    geometries = []                 # a list of the open3d geometries (meshes/pcd's together)
-    estimations = []                # a list of the estimated guasses including their confidence
+    sessionId = ""                      # the id/name of the session
+    dirPath = ""                        # the system path of session directory
+    globalPosition = [0,0,0]            # the global position of the session origin
+    globalRotation = [0,0,0,1]          # the global rotation as a quaternion
+    boundingBox = [[0,0,0],[0,0,0]]     # 3x2 matrix from min x to max z of all the elements in the session
+    imageTransforms = []                # a list of all the image transforms
+    geometries = []                     # a list of the open3d geometries (meshes/pcd's together)
+    estimations: PoseEstimation = []    # a list of the estimated guasses including their confidence
     fidelity = 1
+    recordingDate = datetime.datetime.now()
     accuracy = []
 
     def __init__(self, id = None, path= None, position= None, rotation= None, images= None, meshes= None):
@@ -128,12 +131,13 @@ class Session(RdfObject):
 
         return quaternion.as_rotation_matrix(np.normalized(self.globalRotation))
         
-    def add_pose_guess(self, otherSession, R,t, confidence):
+    def add_pose_guess(self, otherSession, R,t, matches):
         """Add a pose guess to the session"""
 
         globalRot = otherSession.get_rotation_matrix() @ R
         globalPos = np.reshape(otherSession.globalPosition, (3,1)) + np.reshape(otherSession.get_rotation_matrix() @ t, (3,1))
-        self.estimations.append([globalRot, globalPos, confidence * otherSession.fidelity])
+        estimation = PoseEstimation(globalPos, globalRot, matches)
+        self.estimations.append(estimation)
 
     def get_best_pose(self):
         """Determines the best pose based on the confidence and clustering"""
@@ -142,9 +146,9 @@ class Session(RdfObject):
         positions = []
         weights = []
         for estimation in self.estimations:
-            rotations.append(quaternion.from_rotation_matrix(estimation[0]))
-            positions.append(estimation[1])
-            weights.append(estimation[2])
+            rotations.append(quaternion.from_rotation_matrix(estimation.rotation))
+            positions.append(estimation.position)
+            weights.append(estimation.get_confidence())
         Q = np.array(rotations)
         T = np.array(positions)
         w = np.array(weights)/sum(weights)

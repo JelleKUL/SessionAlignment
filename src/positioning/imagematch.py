@@ -5,11 +5,11 @@ import numpy as np
 
 from imagetransform import ImageTransform
 import params
+from match import Match
 
-MAX_FEATURES = 20000
-MAX_MATCHES = 1000
 
-class ImageMatch:
+
+class ImageMatch(Match):
     """This class stores all the data of 2 matched images"""
 
     image1 : ImageTransform = None  # the query ImageTransform
@@ -28,7 +28,7 @@ class ImageMatch:
     fidelity = 1                    # a measurement for the quality of the match
     boundingBoxSurface = 0          # The x&y dimension of the matchesboundingbox
     pointBoundingBox = []           # the # 3x2 matrix from min x to max z of all the elements in the session
-
+    matchType = "2d"
     iterativeMatch = []
 
     def __init__(self, image1, image2):
@@ -41,19 +41,19 @@ class ImageMatch:
         """Finds matches between the 2 images"""
         if(self.matches is None):
             # get cv2 ORb features
-            self.image1.get_cv2_features(MAX_FEATURES)
-            self.image2.get_cv2_features(MAX_FEATURES)
+            self.image1.get_cv2_features(params.MAX_FEATURES)
+            self.image2.get_cv2_features(params.MAX_FEATURES)
             # Match features.
             matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
             matches = matcher.match(self.image1.descriptors, self.image2.descriptors, None)
             # Sort matches by score
             matches = sorted(matches, key = lambda x:x.distance)
             # only use the best features
-            if(len(matches) < MAX_MATCHES):
+            if(len(matches) < params.MAX_MATCHES):
                 print("only found", len(matches), "good matches")
                 matchError = math.inf
             else:
-                matches = matches[:MAX_MATCHES]
+                matches = matches[:params.MAX_MATCHES]
                 # calculate the match score
                 # right now, it's just the average distances of the best points
                 matchError = 0

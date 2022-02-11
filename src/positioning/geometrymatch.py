@@ -5,9 +5,10 @@ import open3d as o3d
 from matplotlib import transforms
 
 from geometrytransform import GeometryTransform
+from match import Match
 
 
-class GeometryMatch:
+class GeometryMatch(Match):
     """This class stores all the data of a 3D match between 2 Geometries"""
 
     geometry1 : GeometryTransform = None    # the reference GeometryTransform
@@ -17,6 +18,7 @@ class GeometryMatch:
     matchError = math.inf           # The match score of the image match (lower is better)
     result = None
     fidelity = 1                    # a measurement for the quality of the match
+    matchType = "3d"
 
 
     def __init__(self, geometry1, geometry2, voxelSize = 0.1):
