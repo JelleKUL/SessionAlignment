@@ -41,19 +41,19 @@ class ImageMatch(Match):
         """Finds matches between the 2 images"""
         if(self.matches is None):
             # get cv2 ORb features
-            self.image1.get_cv2_features(params.MAX_FEATURES)
-            self.image2.get_cv2_features(params.MAX_FEATURES)
+            self.image1.get_cv2_features(params.MAX_2D_FEATURES)
+            self.image2.get_cv2_features(params.MAX_2D_FEATURES)
             # Match features.
             matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
             matches = matcher.match(self.image1.descriptors, self.image2.descriptors, None)
             # Sort matches by score
             matches = sorted(matches, key = lambda x:x.distance)
             # only use the best features
-            if(len(matches) < params.MAX_MATCHES):
+            if(len(matches) < params.MAX_2D_MATCHES):
                 print("only found", len(matches), "good matches")
                 matchError = math.inf
             else:
-                matches = matches[:params.MAX_MATCHES]
+                matches = matches[:params.MAX_2D_MATCHES]
                 # calculate the match score
                 # right now, it's just the average distances of the best points
                 matchError = 0
@@ -62,6 +62,7 @@ class ImageMatch(Match):
                 matchError /= len(matches)
             self.matches = matches
             self.matchError = matchError
+            self.matchAmount = len(matches)
         return self.matches
 
     def get_essential_matrix(self):
@@ -90,6 +91,7 @@ class ImageMatch(Match):
         self.essentialMatrix = E
         self.rotationMatrix = R
         self.translation = t
+        self.matchAmount = len(self.inliers1)
         return E
 
     def get_projectionMatrices(self):

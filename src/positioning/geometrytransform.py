@@ -86,9 +86,8 @@ class GeometryTransform(RdfObject):
 
         if(self.features is None):
             search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=self.voxelSize*2, max_nn=30)
-            self.voxelPcd.estimate_normals(search_param)
             search_param = o3d.geometry.KDTreeSearchParamHybrid(radius=self.voxelSize * 5, max_nn=100)
-            self.features = o3d.pipelines.registration.compute_fpfh_feature(self.voxelPcd,search_param)
+            self.features = o3d.pipelines.registration.compute_fpfh_feature(self.get_voxel_pcd(self.voxelSize),search_param)
 
         return self.features
 

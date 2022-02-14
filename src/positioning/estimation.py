@@ -4,6 +4,8 @@ import params
 import numpy as np
 import datetime
 
+import quaternion
+
 class PoseEstimation():
     """Contains an estimated pose and all it's parameters to calculate it's validity"""
 
@@ -11,13 +13,14 @@ class PoseEstimation():
     rotation = [0,0,0,1]
 
     matches: Match = []
-    method = ""
+    method = "" 
 
 
-    def __init__(self, position, rotation, matches) -> None:
-        self.position = position
+    def __init__(self, position, rotation, matches, method) -> None:
+        self.position = np.reshape(position, (3,1))
         self.rotation = rotation
         self.matches = matches
+        self.method = method
         
 
     def get_confidence(self, session) -> float:
@@ -57,11 +60,37 @@ class PoseEstimation():
 
         # The Other session Parameters
         dateFactor = (datetime.datetime.now() - session.recordingDate).total_seconds()
-        factors.append(dateFactor, params.SESSION_DATE)
+        factors.append([dateFactor, params.SESSION_DATE])
         sensorFactor = session.fidelity
-        factors.append(sensorFactor, params.SENSOR_TYPE)
+        factors.append([sensorFactor, params.SENSOR_TYPE])
 
         confidence = np.average(np.array(factors)[:,0], weights = np.array(factors)[:,1])
 
         return confidence
-                
+
+    def to_table_string(self, nr, session):
+        """Returns the Paper formatted string for a table"""
+
+        averageError = 0
+        averageMatches = 0
+        for match in self.matches: #type: Match
+            averageError += match.matchError
+            averageMatches += match.matchAmount
+        averageError /= len(self.matches)
+        averageMatches /= len(self.matches)
+
+        value = "Image "
+        value += str(nr)
+        value += " & "
+        value += str(np.around(self.position.T, decimals=2))
+        value += " & "
+        value += str(np.around(quaternion.as_float_array(quaternion.from_rotation_matrix(self.rotation)), decimals=2))
+        value += " & "
+        value += str(np.around(averageError, decimals=2))
+        value += " & "
+        value += str(np.around(averageMatches, decimals=2))
+        value += " & 100 & "
+        value += str(np.around(self.get_confidence(session), decimals=2))
+        value += " \\\\"
+
+        return value

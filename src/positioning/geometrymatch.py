@@ -45,8 +45,9 @@ class GeometryMatch(Match):
                     self.voxelSize)
             self.transformation = result.transformation
             self.matchError = result.inlier_rmse
+            self.matchAmount = result.fitness * len(result.correspondence_set)
             self.result = result
-        return result
+        return self.result
 
     def get_translation_and_rotation(self):
         """Returns the translation and rotation matrices"""

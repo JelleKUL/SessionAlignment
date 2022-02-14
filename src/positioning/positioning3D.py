@@ -67,6 +67,15 @@ def get_best_matches(testGeometry, refGeometries, nr = 1):
     #if(nr == 1): return bestResults[0]
     return bestResults
 
+def FPFH_matching(testGeometry, refSession):
+    """Finds the estimated pose of a 'testGeometry' based on other geometry in a 'refSession' """
+    
+    bestMatches = get_best_matches(testGeometry, refSession.geometries, 1) #find 2 best matches
+    R,t = bestMatches[0].get_translation_and_rotation()
+
+    return R,t, bestMatches # the position of the test image transform in reference session space
+
+
 
 #### Triangle Mesh ####
 

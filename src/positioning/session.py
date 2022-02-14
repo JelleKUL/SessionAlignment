@@ -1,5 +1,6 @@
 """Classes and Functions to read and manage SessionData"""
 
+from hmac import trans_36
 import json
 import os
 from math import sqrt
@@ -131,12 +132,14 @@ class Session(RdfObject):
 
         return quaternion.as_rotation_matrix(np.normalized(self.globalRotation))
         
-    def add_pose_guess(self, otherSession, R,t, matches):
+    def add_pose_guess(self, otherSession, R,t, matches, method = ""):
         """Add a pose guess to the session"""
 
         globalRot = otherSession.get_rotation_matrix() @ R
-        globalPos = np.reshape(otherSession.globalPosition, (3,1)) + np.reshape(otherSession.get_rotation_matrix() @ t, (3,1))
-        estimation = PoseEstimation(globalPos, globalRot, matches)
+        globalPos = np.reshape(np.array(otherSession.globalPosition), (3,1))
+        trans = np.reshape(otherSession.get_rotation_matrix() @ np.reshape(t, (3,1)), (3,1))
+        finalPos = globalPos + trans
+        estimation = PoseEstimation(finalPos, globalRot, matches, method)
         self.estimations.append(estimation)
 
     def get_best_pose(self):

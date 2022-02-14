@@ -5,6 +5,7 @@ JSON_ID = "SessionData.json"
 IMG_EXTENSION = [".jpg", ".png"]
 MESH_EXTENSION = [".obj",".fbx" ]
 PCD_EXTENSION = [".pcd", ".pts", ".ply"]
+METHODS = ["leastDistance","incremental","raycasting", "fpfh"]
 
 #2D Matching parameters
 
@@ -31,12 +32,12 @@ TOTAL_3D = 1
 
 #Session parameters
 
-SENSOR_TYPE = 1
-SESSION_DATE = 1
+SENSOR_TYPE = 0
+SESSION_DATE = 0
 
 #method parameters
 
-METHOD = 1 #the generic method weight
+METHOD = 0 #the generic method weight
 LEAST_DISTANCE = 1
 INCREMENTAL = 1
 RAYCASTING = 1
