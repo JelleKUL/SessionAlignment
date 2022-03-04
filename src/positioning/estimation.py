@@ -1,4 +1,5 @@
 from match import Match
+from geometrymatch import GeometryMatch
 import params
 
 import numpy as np
@@ -13,7 +14,8 @@ class PoseEstimation():
     rotation = [0,0,0,1]
 
     matches: Match = []
-    method = "" 
+    method = ""
+    referenceSessionId = ""
 
 
     def __init__(self, position, rotation, matches, method) -> None:
@@ -94,3 +96,47 @@ class PoseEstimation():
         value += " \\\\"
 
         return value
+
+    def to_string_array(self, session):
+        """Converts all the paramerters and data to a string array"""
+        decimals = 3
+        array = []
+
+        averageError = 0
+        averageMatches = 0
+        for match in self.matches: #type: Match
+            averageError += match.matchError
+            averageMatches += match.matchAmount
+        averageError /= len(self.matches)
+        averageMatches /= len(self.matches)
+
+        if(isinstance(self.matches[0], GeometryMatch)):
+            array.append(self.matches[0].geometry2.id) #test Image
+            array.append(self.matches[0].geometry1.id) #ref image
+        else:
+            array.append(self.matches[0].image2.id) #test Image
+            array.append(self.matches[0].image1.id) #ref image
+        array.append(self.method) #ref image
+        array.append(self.referenceSessionId) # the reference session Id
+        # position
+        position = np.around(self.position, decimals=decimals)
+        array.append(position[0][0])
+        array.append(position[1][0])
+        array.append(position[2][0])
+
+        # rotation
+        rotation = np.around(quaternion.as_float_array(quaternion.from_rotation_matrix(self.rotation)), decimals=decimals)
+        array.append(rotation[0])
+        array.append(rotation[1])
+        array.append(rotation[2])
+        array.append(rotation[3])
+
+        #params
+        array.append(np.around(averageError, decimals=decimals))
+        array.append(np.around( averageMatches, decimals=decimals))
+        array.append(np.around(self.get_confidence(session), decimals=decimals))
+
+        return array
+
+
+

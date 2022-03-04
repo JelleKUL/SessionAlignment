@@ -2,6 +2,7 @@ import math
 
 import cv2
 import numpy as np
+import open3d as o3d
 
 from imagetransform import ImageTransform
 import params
@@ -116,6 +117,14 @@ class ImageMatch(Match):
             self.pointMap.append([ self.inliers1[i], self.inliers2[i], self.points3d[i]])
         return self.points3d
     
+    def get_point_cloud(self):
+        """Returns an open3d point cloud of all the 3d points in session space"""
+
+        estimatedPoints = o3d.geometry.PointCloud()
+        estimatedPoints.points = o3d.utility.Vector3dVector(self.points3d)
+
+        return estimatedPoints
+
     def get_reference_scaling_factor(self):
         """Uses the real world distance to scale the translationvector"""
 
@@ -165,6 +174,9 @@ class ImageMatch(Match):
                     self.iterativeMatch.append([np.around(point[0]), currentSelfPixel, currentSelfQueryPixel, point[2]])
                     break
 
+        if(len(points_3D) < 10):
+            return self.image1.get_rotation_matrix(), self.image1.pos
+        
         # compute new inverse pose using solvePnPRansac
         _, R, t, _ = cv2.solvePnPRansac(np.array(points_3D), np.array(points_2D), self.image2.get_camera_matrix(), None,
                                         confidence=0.99, reprojectionError=8.0, flags=cv2.SOLVEPNP_DLS, useExtrinsicGuess=True)
@@ -197,6 +209,8 @@ class ImageMatch(Match):
                                     self.image2.get_cv2_image(),self.image2.keypoints,
                                     self.matches,None, **draw_params)
         return imMatches
+
+    
 
     def draw_epilines(self):
         """Draw epilines in the 2 images"""

@@ -2,6 +2,8 @@
 
 import numpy as np
 import quaternion
+import params
+from datetime import datetime
 
 def dict_to_quaternion(dict):
     return np.quaternion(dict["w"],dict["x"],dict["y"],dict["z"])
@@ -22,6 +24,9 @@ def convert_axis(pos, rot, originalAxis):
     newRot = quaternion.from_float_array(quaternion.as_float_array(rot) * np.array([-1,1,-1,1]))
     return newPos, newRot
 
+def get_time_from_string(timeString):
+    """Converts a string into a date format"""
+    return datetime.strptime(timeString, params.TIME_FORMAT)
 
 # Average multiple quaternions with specific weights
 # The weight vector w must be of the same length as the number of rows in the

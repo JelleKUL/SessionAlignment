@@ -186,7 +186,10 @@ def raycast_matching(testImage, refSession):
         if(not math.isinf(rayDistance)):
             scalingFactors.append(rayDistance/pointDistance)
 
-    scalingFactor = sum(scalingFactors) / float(len(scalingFactors))
+    if(len(scalingFactors)>0):
+        scalingFactor = sum(scalingFactors) / float(len(scalingFactors))
+    else: 
+        scalingFactor = 1
     print("ScalingFactor:", scalingFactor)
     match.set_scaling_factor(scalingFactor)
     match.triangulate(useCameraPose = True) # determine the 3D points

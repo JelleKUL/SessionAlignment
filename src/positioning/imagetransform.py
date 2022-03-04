@@ -99,6 +99,12 @@ class ImageTransform(RdfObject):
         box.translate(self.pos)
         return box
 
+    def get_features_image(self):
+        """Returns the image with marked features"""
+        
+        return cv2.drawKeypoints(self.get_cv2_image(), self.keypoints, outImage=np.array([]), color=(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+
     def set_transformation_matrix(self, pos, rot):
         """Set the position (vector3) and rotation (quaternion) of the image"""
 

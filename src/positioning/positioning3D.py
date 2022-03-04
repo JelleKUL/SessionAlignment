@@ -287,7 +287,7 @@ def show_geometries(geometries, color = False):
             geometry.paint_uniform_color(matplotlib.colors.hsv_to_rgb([float(i)/len(geometries),0.8,0.8]))
         viewer.add_geometry(geometry)
     opt = viewer.get_render_option()
-    opt.background_color = np.asarray([0.5, 0.5, 0.5])
+    opt.background_color = np.asarray([1,1,1])
     opt.light_on = True
     viewer.run()
 

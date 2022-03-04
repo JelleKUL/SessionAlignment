@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import random
 
 import open3d as o3d
 from matplotlib import transforms
@@ -61,8 +62,11 @@ class GeometryMatch(Match):
         """Returns an open3d lineset object of all the matches"""
         
         lineset = o3d.geometry.LineSet.create_from_point_cloud_correspondences(self.geometry2.get_voxel_pcd(), self.geometry1.get_voxel_pcd(), np.asarray(self.result.correspondence_set))
-        if maxLines < 0: maxLines = len(np.asarray(lineset.lines))
-        lineset.lines = o3d.cpu.pybind.utility.Vector2iVector(np.asarray(lineset.lines)[:(min(len(np.asarray(lineset.lines)), maxLines))])
+        array = np.asarray(lineset.lines)
+        random.shuffle(array)
+        if maxLines < 0: 
+            maxLines = len(array)
+        lineset.lines = o3d.cpu.pybind.utility.Vector2iVector(array[:(min(len(array), maxLines))])
 
         return lineset
 
