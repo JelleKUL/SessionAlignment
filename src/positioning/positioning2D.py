@@ -101,24 +101,26 @@ def cross_reference_matching(testImage, refSession):
 def cross_reference_pose(match1: ImageMatch, match2: ImageMatch):
     """determines a pose of the 3rd image based on 2 seperate reference matches"""
 
-    def get_position(scaleFactor, imageTransform: ImageTransform, translation : np.array):
+    def get_position(scaleFactor, match : ImageMatch):
         """Returns the translation in function of a scale factor"""
-        newPosition = imageTransform.pos + scaleFactor * (imageTransform.get_rotation_matrix() @ translation).T
-        return newPosition
+        match.set_scaling_factor(scaleFactor)
+        _,t = match.get_image2_pos()
+        #newPosition = imageTransform.pos + scaleFactor * (imageTransform.get_rotation_matrix() @ translation).T
+        return t
 
     def get_distance_array(x):
-        pos1 = get_position(x[0], match1.image1, match1.translation)
-        pos2 = get_position(x[1], match2.image1, match2.translation)
+        pos1 = get_position(x[0], match1)
+        pos2 = get_position(x[1], match2)
         return np.linalg.norm(pos2-pos1)
 
     minimum = optimize.fmin(get_distance_array, [1,1])
 
-    pos1 = get_position(minimum[0], match1.image1, match1.translation)
-    pos2 = get_position(minimum[1], match2.image1, match2.translation)
+    pos1 = get_position(minimum[0], match1)
+    pos2 = get_position(minimum[1], match2)
     t =(pos1 + pos2)/2 #return the average of the 2 positions
-    R = match1.image1.get_rotation_matrix() @ match1.rotationMatrix
+    R,_ = match1.get_image2_pos()
     confidence = match1.fidelity + match2.fidelity
-    return R, t.T, confidence
+    return R, t, confidence
 
 
 # METHOD 2: Incremental matching
@@ -154,12 +156,39 @@ def get_best_session_match(image, session : Session):
     return bestRefMatch
 
 # METHOD 3: RayCasting
-#TODO add testmesh raycasting
 def raycast_matching(testImage, refSession):
     """Determines the estimated pose by matching with 1 reference image and raycasting against the 3d scene"""
 
     #find the best single match for the test image
     match = get_best_matches(testImage, refSession.imageTransforms, nr=1)
+    match.get_essential_matrix() # Calculate the essential matrix
+    match.triangulate(useCameraPose = True) # determine the 3D points
+    rayCastImage = match.image1
+
+    #cast a number of rays on the determined points in the scene
+    scalingFactors = []
+    for point in match.points3d:
+        pointVector = point - (rayCastImage.pos)
+        pointDistance = np.linalg.norm(pointVector)
+        direction = pointVector / pointDistance
+        rayDistance = refSession.geometries[0].get_distance_from_point(rayCastImage.pos, direction)
+        if(not math.isinf(rayDistance)):
+            scalingFactors.append(rayDistance/pointDistance)
+
+    if(len(scalingFactors)>0):
+        scalingFactor = sum(scalingFactors) / float(len(scalingFactors))
+    else: 
+        scalingFactor = 1
+    match.set_scaling_factor(scalingFactor)
+    match.triangulate(useCameraPose = True) # determine the 3D points
+
+    R,t = match.get_image2_pos(False)
+    return R,t, [match]
+
+def raycast_image_matching(match, geometry):
+    """Determines the estimated pose by matching with 1 reference image and raycasting against the 3d scene"""
+
+    #find the best single match for the test image
     match.get_essential_matrix() # Calculate the essential matrix
     match.triangulate(useCameraPose = True) # determine the 3D points
     rayCastImage = match.image1
@@ -182,12 +211,13 @@ def raycast_matching(testImage, refSession):
         pointVector = point - (rayCastImage.pos)
         pointDistance = np.linalg.norm(pointVector)
         direction = pointVector / pointDistance
-        rayDistance = refSession.geometries[0].get_distance_from_point(rayCastImage.pos, direction)
+        rayDistance = geometry.get_distance_from_point(rayCastImage.pos, direction)
         if(not math.isinf(rayDistance)):
             scalingFactors.append(rayDistance/pointDistance)
 
     if(len(scalingFactors)>0):
-        scalingFactor = sum(scalingFactors) / float(len(scalingFactors))
+        filteredOutliers = utils.reject_outliers(np.array(scalingFactors))
+        scalingFactor = np.average(filteredOutliers)
     else: 
         scalingFactor = 1
     print("ScalingFactor:", scalingFactor)
@@ -196,7 +226,7 @@ def raycast_matching(testImage, refSession):
 
     R,t = match.get_image2_pos(False)
     confidence = match.fidelity
-    return R,t, [match]
+    return R,t
 
 
 

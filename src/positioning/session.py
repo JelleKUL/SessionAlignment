@@ -5,6 +5,7 @@ import json
 import os
 from math import sqrt
 import datetime
+from turtle import pos
 
 import numpy as np
 import open3d as o3d
@@ -22,8 +23,8 @@ class Session(RdfObject):
 
     sessionId = ""                      # the id/name of the session
     dirPath = ""                        # the system path of session directory
-    globalPosition = [0,0,0]            # the global position of the session origin
-    globalRotation = [0,0,0,1]          # the global rotation as a quaternion
+    globalPosition = np.array([0,0,0])            # the global position of the session origin
+    globalRotation = quaternion.from_float_array([0,0,0,1])          # the global rotation as a quaternion
     boundingBox = [[0,0,0],[0,0,0]]     # 3x2 matrix from min x to max z of all the elements in the session
     imageTransforms = []                # a list of all the image transforms
     geometries = []                     # a list of the open3d geometries (meshes/pcd's together)
@@ -32,7 +33,7 @@ class Session(RdfObject):
     recordingDate = datetime.datetime.now()
     accuracy = []
 
-    def __init__(self, id = None, path= None, position= None, rotation= None, images= None, meshes= None):
+    def __init__(self, id = None, path= None, position= np.array([0,0,0]), rotation= quaternion.from_float_array([0,0,0,1]), images= None, meshes= None):
         """Initialise the session"""
 
         self.sessionId = id
@@ -195,6 +196,55 @@ class Session(RdfObject):
 
         print("converting to json is not yet implemented")
         return None
+
+    def benchMark_to_session(self, path):
+        """converts a benchmark dataset to a session object"""
+        # crawl the folder to look for .camera files
+        self.imageTransforms = []
+        self.geometries = []
+
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                if file.endswith(".camera"):
+                    # a .camera file is found
+                    fileid = file.replace(".camera", "")
+                    #print("found camera file:",fileid)
+                    with open(os.path.join(root, file)) as f:
+                        lines = f.readlines()
+                        arr = []
+                        for line in lines:
+                            line = " ".join(line.split())
+                            values = line.split(' ')
+                            for value in values:
+                                arr.append(float(value))
+                        # add the array values to the imageTransform
+                        cameraMatrix = np.array([
+                            [arr[0],arr[1],arr[2]],
+                            [arr[3],arr[4],arr[5]],
+                            [arr[6],arr[7],arr[8]]
+                            ])
+                        rotationMatrix = np.array([
+                            [arr[12],arr[13],arr[14]],
+                            [arr[15],arr[16],arr[17]],
+                            [arr[18],arr[19],arr[20]]
+                            ])
+                        position = np.array([arr[21],arr[22],arr[23]])
+
+                        newImg = ImageTransform(
+                            id = fileid, 
+                            pos = position, 
+                            rot= quaternion.from_rotation_matrix(rotationMatrix), 
+                            path= os.path.join(path, "images", fileid))
+                        newImg.cameraMatrix = cameraMatrix
+                        self.imageTransforms.append(newImg)
+                elif file.endswith(".obj"):
+                    print(file)
+                    newGeometry = GeometryTransform().from_path(os.path.join(root, file))
+                    self.geometries.append(newGeometry)
+
+        #print(self.imageTransforms)
+        return self
+
 
 
 def sphere_intersection(center1, radius1, center2, radius2):

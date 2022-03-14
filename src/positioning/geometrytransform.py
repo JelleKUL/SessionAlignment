@@ -116,7 +116,7 @@ def cast_ray_in_mesh(mesh, origin : np.array, direction : np.array):
                        dtype=o3d.core.Dtype.Float32)
     rayCast = scene.cast_rays(rays)
     distance = float(o3d.core.Tensor.numpy(rayCast['t_hit']))
-    print("raycast distance:" , distance)
+    #print("raycast distance:" , distance)
     return distance
 
 #TODO add range check based on bounding box distance from origin

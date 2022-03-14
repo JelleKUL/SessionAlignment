@@ -49,3 +49,9 @@ def weighted_average_quaternions(Q, w):
     eigenVectors = eigenVectors[:,eigenValues.argsort()[::-1]]
     # return the real part of the largest eigenvector (has only real part)
     return np.real(eigenVectors[:,0].A1)
+
+def reject_outliers(data, m = 2.):
+    d = np.abs(data - np.median(data))
+    mdev = np.median(d)
+    s = d/mdev if mdev else 0.
+    return data[s<m]

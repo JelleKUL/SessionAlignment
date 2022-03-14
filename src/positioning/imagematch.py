@@ -79,10 +79,10 @@ class ImageMatch(Match):
             points2[i, :] = self.image2.keypoints[match.trainIdx].pt
 
         _, E, R, t, mask = cv2.recoverPose(points1= points1,
-                                           points2= points2, 
+                                           points2= points2,
                                            cameraMatrix1= self.image1.get_camera_matrix(),
                                            distCoeffs1= None,
-                                           cameraMatrix2= self.image2.get_camera_matrix(), 
+                                           cameraMatrix2= self.image2.get_camera_matrix(),
                                            distCoeffs2= None)
 
         # assign the values
@@ -144,8 +144,19 @@ class ImageMatch(Match):
             return self.rotationMatrix, self.translation
         else:
             R = self.image1.get_rotation_matrix() @ self.rotationMatrix.T
-            t = np.reshape(self.image1.pos, (3,1)) - np.reshape(self.image1.get_rotation_matrix() @ self.translation,(3,1))
-            print("image1 pos:",self.image1.pos, "translation:", self.image1.get_rotation_matrix() @ self.translation)
+            t = np.reshape(self.image1.pos, (3,1)) - np.reshape(R @ self.translation,(3,1))
+            #print("image1 pos:",self.image1.pos, "translation:", self.image1.get_rotation_matrix() @ self.translation)
+
+        return R,t
+
+    def get_image1_pos(self, local = False):
+        """Return the global/local position of image2 with t and R """
+        if(local):
+            return self.rotationMatrix, self.translation
+        else:
+            R = self.image2.get_rotation_matrix() @ self.rotationMatrix
+            t = np.reshape(self.image2.pos, (3,1)) + np.reshape(self.image2.get_rotation_matrix() @ self.translation,(3,1))
+           
 
         return R,t
 
