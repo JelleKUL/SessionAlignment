@@ -64,11 +64,13 @@ class ImageTransform(RdfObject):
 
         if(this.cameraMatrix is None):
             imageSize = [this.get_cv2_image().shape[1]/2,this.get_cv2_image().shape[0]/2] #width, height
-            aspectRatio = imageSize[0] / imageSize[1]
-            a_x = this.fov * aspectRatio
-            a_y = this.fov
-            f_x = imageSize[0] / math.tan(math.radians(a_x) / 2 )
-            f_y = imageSize[1] / math.tan(math.radians(a_y) / 2)
+            aspectRatio = imageSize[0] / imageSize[1] #width/height
+            # determine the horizontal en vertival half fov's in radians
+            a_y = math.radians(this.fov/2)
+            a_x =  math.atan( math.tan(a_y) * aspectRatio)
+            
+            f_x = imageSize[0] / math.tan(a_x)
+            f_y = imageSize[1] / math.tan(a_y)
             this.cameraMatrix = np.array([[f_x, 0, imageSize[0]], [0, f_y, imageSize[1]],[0,0,1]])
         return this.cameraMatrix
 
