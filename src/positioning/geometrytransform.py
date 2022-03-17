@@ -15,7 +15,7 @@ class GeometryTransform(RdfObject):
     geometry = None             # the open3d.geometry
     accuracy = []
     voxelPcd = None
-    voxelSize = 1
+    voxelSize = 0.05
     
 
 
@@ -24,6 +24,8 @@ class GeometryTransform(RdfObject):
         
         self.id = id
         self.path = path
+        if(path != None):
+            self.get_geometry()
 
     def from_dict(self, dict, path, type):
         """the input path is the location of the folder, type = 'mesh' or 'pcd' """
@@ -67,10 +69,12 @@ class GeometryTransform(RdfObject):
             if(voxelSize != -1): self.voxelSize = voxelSize
 
             if (isinstance(self.geometry, o3d.geometry.TriangleMesh)):
-                voxelMesh = self.geometry.simplify_vertex_clustering(self.voxelSize)
-                voxelPcd = o3d.geometry.PointCloud()
-                voxelPcd.points = o3d.utility.Vector3dVector(voxelMesh.vertices)
+                #voxelMesh = self.geometry.simplify_vertex_clustering(self.voxelSize)
+                #voxelPcd = o3d.geometry.PointCloud()
+                #voxelPcd.points = o3d.utility.Vector3dVector(voxelMesh.vertices)
+                voxelPcd = self.geometry.sample_points_poisson_disk(number_of_points=100000, init_factor=2)
                 self.voxelPcd = voxelPcd
+                self.voxelPcd = voxelPcd.voxel_down_sample(self.voxelSize)
             elif (isinstance(self.geometry, o3d.geometry.PointCloud)):
                 self.voxelPcd = self.geometry.voxel_down_sample(self.voxelSize)
 
