@@ -208,17 +208,23 @@ class ImageMatch(Match):
                                     self.matches,None, flags=2)
         return imMatches
 
-    def draw_image_inliers(self):
+    def draw_image_inliers(self, color = (0,255,0), invert = False):
         """Draws the inliers on the 2 images"""
 
         matchesMask = self.mask.ravel().tolist()
-        draw_params = dict(matchColor = (0,255,0), # draw matches in green color
+        draw_params = dict(matchColor = color, # draw matches in a single color
                    singlePointColor = None,
                    matchesMask = matchesMask, # draw only inliers
                    flags = 2)
-        imMatches = cv2.drawMatches(self.image1.get_cv2_image(),self.image1.keypoints,
-                                    self.image2.get_cv2_image(),self.image2.keypoints,
-                                    self.matches,None, **draw_params)
+        if(not invert):
+            imMatches = cv2.drawMatches(self.image1.get_cv2_image(),self.image1.keypoints,
+                                        self.image2.get_cv2_image(),self.image2.keypoints,
+                                        self.matches,None, **draw_params)
+        else:
+            imMatches = cv2.drawMatches(self.image2.get_cv2_image(),self.image2.keypoints,
+                                        self.image1.get_cv2_image(),self.image1.keypoints,
+                                        self.matches,None, **draw_params)
+
         return imMatches
 
     
