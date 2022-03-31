@@ -79,7 +79,7 @@ def get_best_matches(testImage, refImages, nr = 1) -> ImageMatch:
                 bestResults = bestResults[:nr]
 
             nrCheck +=1
-            print(str(nrCheck) + "/" + str(totalCheck) + " checks complete")
+            print(str(nrCheck) + "/" + str(totalCheck) + " checks complete with matchError:" + str(newMatch.matchError))
 
     for result in bestResults:
         result.get_essential_matrix() # determin the transformation and inliers
