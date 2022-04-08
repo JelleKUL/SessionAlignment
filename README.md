@@ -1,4 +1,4 @@
-# PythonDataAlignment
+# Pose Estimation
 Aligning devices using 2D and 3D reference data
 
 ## Installation
