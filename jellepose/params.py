@@ -6,7 +6,7 @@ IMG_EXTENSION = [".jpg", ".png", ".JPG", ".PNG", ".JPEG"]
 MESH_EXTENSION = [".obj",".fbx" ]
 PCD_EXTENSION = [".pcd", ".pts", ".ply"]
 TIME_FORMAT = "%Y-%m-%d %H-%M-%S"
-METHODS = ["leastDistance","incremental","raycasting", "fpfh"]
+METHODS = ["leastDistance","incremental","raycasting", "fpfh", "super4pcs"]
 
 #2D Matching parameters
 
@@ -33,12 +33,14 @@ TOTAL_3D = 1
 
 #Session parameters
 
-SENSOR_TYPE = 0
+SENSOR_TYPE = 0.5
 SESSION_DATE = 0
 
 #method parameters
 
-METHOD = 0 #the generic method weight
-LEAST_DISTANCE = 1
+METHOD = 0.5 #the generic method weight
+LEAST_DISTANCE = 0.3
 INCREMENTAL = 1
 RAYCASTING = 1
+FPFH = 0.8
+SUPER4PCS = 1
